@@ -1,0 +1,41 @@
+name: BIST Daily Scanner
+
+on:
+  schedule:
+    # Her gün UTC ile 05:00 (Türkiye saati ile 08:00) çalışır.
+    - cron: '0 5 * * *'
+  workflow_dispatch: # Manuel olarak butona basıp denemenizi sağlar
+
+jobs:
+  scan_and_email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu İndir (Checkout repository)
+        uses: actions/checkout@v3
+
+      - name: Python Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Kütüphaneleri Yükle
+        run: |
+          pip install -r requirements.txt
+
+      - name: Tarama ve E-Posta Göndericiyi Çalıştır
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
+        run: |
+          python daily_scanner.py
+          
+      - name: Yeni Tarihleri Git'e Kaydet (Sonraki gün karşılaştırmak için)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add is_yatirim_periods.json
+          git commit -m "Otomatik Güncelleme: Bilanço Dönemleri" || echo "Değişiklik yok"
+          git push
