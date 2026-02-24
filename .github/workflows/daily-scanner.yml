@@ -3,7 +3,7 @@ name: BIST Daily Scanner
 on:
   schedule:
     # Her gün UTC ile 05:00 (Türkiye saati ile 08:00) çalışır.
-    - cron: '10 12 * * *'
+    - cron: '20 12 * * *'
   workflow_dispatch: # Manuel olarak butona basıp denemenizi sağlar
 
 jobs:
