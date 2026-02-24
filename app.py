@@ -89,7 +89,7 @@ if st.session_state.raw_data is not None:
     # Select columns to display
     display_cols = [
         'Kod', 'Sektör', 'Son Dönem', 'Bilanço Açıklanma Tarihi', 'Kapanış (TL)', 'F/K', 'PD/DD', 
-        'RSI (14)', 'MA200 Uzaklık (%)',
+        'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
         'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)'
@@ -113,6 +113,14 @@ if st.session_state.raw_data is not None:
         if float(val) > 0: return 'color: red;'   # Üstünde (pahalı)
         return ''
         
+    def color_graham(val):
+        if pd.isna(val): return ''
+        score = int(val)
+        if score >= 8: return 'color: white; background-color: darkgreen; font-weight: bold;'
+        if score >= 6: return 'color: green; font-weight: bold;'
+        if score <= 3: return 'color: red;'
+        return ''
+        
     # Sütunları daraltmak ve biçimlendirmek için Column Config
     column_widths = {
         "Kod": st.column_config.TextColumn("Kod", width="small"),
@@ -124,6 +132,7 @@ if st.session_state.raw_data is not None:
         "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
         "RSI (14)": st.column_config.NumberColumn("RSI", width="small"),
         "MA200 Uzaklık (%)": st.column_config.NumberColumn("MA200 Uzaklık", width="small"),
+        "Graham Skoru": st.column_config.NumberColumn("Graham Skoru (10)", width="small"),
         "Hedef Fiyat (F/K)": st.column_config.NumberColumn("HF (F/K)", width="small"),
         "Hedef Fiyat (PD/DD)": st.column_config.NumberColumn("HF (PD/DD)", width="small"),
         "Hedef Fiyat (ROE)": st.column_config.NumberColumn("HF (ROE)", width="small"),
@@ -139,6 +148,7 @@ if st.session_state.raw_data is not None:
         .map(color_potential, subset=['Potansiyel Getiri (%)'])
         .map(color_rsi, subset=['RSI (14)'])
         .map(color_ma200, subset=['MA200 Uzaklık (%)'])
+        .map(color_graham, subset=['Graham Skoru'])
         .format({
             "Kapanış (TL)": "₺{:.2f}",
             "Hedef Fiyat (F/K)": "₺{:.2f}",

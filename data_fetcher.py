@@ -59,7 +59,7 @@ def fetch_tv_data():
         "options": {"lang": "tr"},
         "markets": ["turkey"],
         "symbols": {"query": {"types": ["stock"]}},
-        "columns": ["name", "earnings_release_date", "RSI", "SMA200"],
+        "columns": ["name", "earnings_release_date", "RSI", "SMA200", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
     }
@@ -73,6 +73,12 @@ def fetch_tv_data():
                 timestamp = row['d'][1]
                 rsi = row['d'][2]
                 sma200 = row['d'][3]
+                current_ratio = row['d'][4]
+                debt_to_equity = row['d'][5]
+                # TV returns debt/equity as a ratio (e.g., 0.50 means 50%) or percentage depending on the field. The test showed 0.046 for THYAO so it's a ratio.
+                dividend_yield = row['d'][6]
+                market_cap = row['d'][7]
+                roe = row['d'][8]
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -83,7 +89,12 @@ def fetch_tv_data():
                     'Kod': ticker,
                     'Bilanço Açıklanma Tarihi': formatted_date,
                     'RSI (14)': rsi,
-                    'MA200': sma200
+                    'MA200': sma200,
+                    'Cari Oran': current_ratio,
+                    'Borç/Özkaynak': debt_to_equity,
+                    'Temettü Verimi': dividend_yield,
+                    'Piyasa Değeri': market_cap,
+                    'TV_ROE': roe
                 })
     except Exception as e:
         print("Error fetching TV data:", e)

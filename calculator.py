@@ -87,6 +87,50 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
     # Potential Profit/Loss Percentage
     df['Potansiyel Getiri (%)'] = ((df['Nihai Hedef Fiyat'] - df['Kapanış (TL)']) / df['Kapanış (TL)']) * 100
     
+    # ------------------ GRAHAM RATING (0-10) ------------------
+    # Initialize Graham Score
+    df['Graham Skoru'] = 0
+
+    # 1. Büyüklük (Size): Piyasa Değeri > 5.000.000.000
+    if 'Piyasa Değeri' in df.columns:
+        df['Piyasa Değeri'] = pd.to_numeric(df['Piyasa Değeri'], errors='coerce')
+        df['Graham Skoru'] += (df['Piyasa Değeri'] > 5000000000).astype(int)
+
+    # 2. Likidite: Cari Oran > 1.5
+    if 'Cari Oran' in df.columns:
+        df['Cari Oran'] = pd.to_numeric(df['Cari Oran'], errors='coerce')
+        df['Graham Skoru'] += (df['Cari Oran'] > 1.5).astype(int)
+
+    # 3. Düşük Borçluluk: Borç/Özkaynak < 0.5
+    if 'Borç/Özkaynak' in df.columns:
+        df['Borç/Özkaynak'] = pd.to_numeric(df['Borç/Özkaynak'], errors='coerce')
+        df['Graham Skoru'] += ((df['Borç/Özkaynak'] < 0.5) & (df['Borç/Özkaynak'] >= 0)).astype(int)
+
+    # 4. Kârlılık İstikrarı: F/K > 0
+    df['Graham Skoru'] += (df['F/K'] > 0).astype(int)
+
+    # 5. Yüksek Kârlılık: ROE > %20
+    df['Graham Skoru'] += (df['ROE_Derived'] > 0.20).astype(int)
+
+    # 6. Ucuz Fiyatlama: F/K < 15
+    df['Graham Skoru'] += ((df['F/K'] > 0) & (df['F/K'] < 15)).astype(int)
+
+    # 7. Makul Defter Değeri: PD/DD < 1.5
+    df['Graham Skoru'] += ((df['PD/DD'] > 0) & (df['PD/DD'] < 1.5)).astype(int)
+
+    # 8. Graham Çarpan Şartı: (F/K * PD/DD) < 22.5
+    df['Graham Skoru'] += (((df['F/K'] > 0) & (df['PD/DD'] > 0)) & ((df['F/K'] * df['PD/DD']) < 22.5)).astype(int)
+
+    # 9. Temettü Verimi: > 0
+    if 'Temettü Verimi' in df.columns:
+        df['Temettü Verimi'] = pd.to_numeric(df['Temettü Verimi'], errors='coerce')
+        df['Graham Skoru'] += (df['Temettü Verimi'] > 0).astype(int)
+
+    # 10. Aşırı Fiyatlanmamış: RSI(14) < 60
+    if 'RSI (14)' in df.columns:
+        df['RSI (14)'] = pd.to_numeric(df['RSI (14)'], errors='coerce')
+        df['Graham Skoru'] += ((df['RSI (14)'] > 0) & (df['RSI (14)'] < 60)).astype(int)
+
     # Sort by Potential Return (Büyükten Küçüğe), keeping NaNs at the end
     df = df.sort_values(by='Potansiyel Getiri (%)', ascending=False, na_position='last')
     
