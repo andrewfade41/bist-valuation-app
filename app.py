@@ -113,6 +113,26 @@ if st.session_state.raw_data is not None:
         if float(val) > 0: return 'color: red;'   # Üstünde (pahalı)
         return ''
         
+    # Sütunları daraltmak ve biçimlendirmek için Column Config
+    column_widths = {
+        "Kod": st.column_config.TextColumn("Kod", width="small"),
+        "Sektör": st.column_config.TextColumn("Sektör", width="small"),
+        "Son Dönem": st.column_config.TextColumn("Dönem", width="small"),
+        "Bilanço Açıklanma Tarihi": st.column_config.TextColumn("Tarih", width="small"),
+        "Kapanış (TL)": st.column_config.NumberColumn("Fiyat (TL)", width="small"),
+        "F/K": st.column_config.NumberColumn("F/K", width="small"),
+        "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
+        "RSI (14)": st.column_config.NumberColumn("RSI", width="small"),
+        "MA200 Uzaklık (%)": st.column_config.NumberColumn("MA200 Uzaklık", width="small"),
+        "Hedef Fiyat (F/K)": st.column_config.NumberColumn("HF (F/K)", width="small"),
+        "Hedef Fiyat (PD/DD)": st.column_config.NumberColumn("HF (PD/DD)", width="small"),
+        "Hedef Fiyat (ROE)": st.column_config.NumberColumn("HF (ROE)", width="small"),
+        "Hedef Fiyat (BIST Ort.)": st.column_config.NumberColumn("HF (BIST Ort.)", width="medium"),
+        "Hedef Fiyat (Sektör PD/DD)": st.column_config.NumberColumn("HF (Sektör)", width="medium"),
+        "Nihai Hedef Fiyat": st.column_config.NumberColumn("Nihai Hedef Fiyat", width="medium"),
+        "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small")
+    }
+    
     # Styling the dataframe
     st.dataframe(
         df_display.style
@@ -134,5 +154,6 @@ if st.session_state.raw_data is not None:
             "PD/DD": "{:.2f}"
         }),
         use_container_width=True,
-        height=600
+        height=600,
+        column_config=column_widths
     )
