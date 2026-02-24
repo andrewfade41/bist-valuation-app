@@ -94,6 +94,9 @@ if st.session_state.raw_data is not None:
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
         'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)'
     ]
+    # Sadece mevcut olan kolonları görüntüle (eski önbelleklerde hata vermemesi için)
+    display_cols = [col for col in display_cols if col in df_filtered.columns]
+    
     df_display = df_filtered[display_cols].copy()
     
     # Formatter for Streamlit Dataframe
