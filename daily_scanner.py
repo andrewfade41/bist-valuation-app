@@ -121,6 +121,12 @@ def format_html_email(df_calc, changed_tickers):
           </tbody>
         </table>
         <br>
+        <p style="font-size: 14px; color: #333;">
+          <a href="https://bistscanner.streamlit.app/" style="text-decoration: none; color: #0066cc; font-weight: bold;">
+            Tüm hisselerin değerleme tablosunu ve güncel durumlarını incelemek için BIST Scanner uygulamasını ziyaret edebilirsiniz.
+          </a>
+        </p>
+        <br>
         <p style="font-size: 12px; color: #777;">Bu e-posta otomatik olarak Bist Valuation Scanner tarafından oluşturulmuştur.</p>
       </body>
     </html>
