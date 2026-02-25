@@ -84,11 +84,16 @@ if st.session_state.raw_data is not None:
         st.write("") # spacer to align with inputs
         st.write("")
         # Add Portfolio filter
-        portfolio_tickers_env = os.getenv("PORTFOLIO_TICKERS", "")
+        # Try to get from Streamlit Cloud Secrets first, then fallback to .env/os.environ
+        try:
+            portfolio_tickers_env = st.secrets.get("PORTFOLIO_TICKERS", os.getenv("PORTFOLIO_TICKERS", ""))
+        except Exception:
+            portfolio_tickers_env = os.getenv("PORTFOLIO_TICKERS", "")
+            
         portfolio_tickers = [t.strip().upper() for t in portfolio_tickers_env.split(",") if t.strip()]
         
         show_portfolio = st.checkbox("Sadece Portföyüm", value=False, 
-                                     help="Sadece .env dosyasındaki hisselerinizi gösterir." if portfolio_tickers else ".env dosyasında PORTFOLIO_TICKERS bulunamadı.")
+                                     help="Sadece .env veya Streamlit secrets dosyasındaki hisselerinizi gösterir." if portfolio_tickers else "Secret/Env dosyasında PORTFOLIO_TICKERS bulunamadı.")
         
     df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
     if search_ticker:
@@ -101,13 +106,13 @@ if st.session_state.raw_data is not None:
         if portfolio_tickers:
             df_filtered = df_filtered[df_filtered['Kod'].isin(portfolio_tickers)]
         else:
-            st.warning("Gösterilecek portföy hissesi bulunamadı. Lütfen `.env` dosyasında `PORTFOLIO_TICKERS=THYAO, TUPRS` şeklinde tanımlama yapınız.")
+            st.warning("Gösterilecek portföy hissesi bulunamadı. Lütfen `.env` (lokal) veya **Streamlit Secrets** (cloud) üzerinde `PORTFOLIO_TICKERS=THYAO, TUPRS` şeklinde tanımlama yapınız.")
         
     st.subheader(f"📊 Değerleme Tablosu ({len(df_filtered)} Hisse)")
     
     # Select columns to display
     display_cols = [
-        'Kod', 'Sektör', 'Son Dönem', 'Bilanço Açıklanma Tarihi', 'Kapanış (TL)', 'F/K', 'PD/DD', 
+        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 
         'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
@@ -148,7 +153,6 @@ if st.session_state.raw_data is not None:
         "Kod": st.column_config.TextColumn("Kod", width="small"),
         "Sektör": st.column_config.TextColumn("Sektör", width="small"),
         "Son Dönem": st.column_config.TextColumn("Dönem", width="small"),
-        "Bilanço Açıklanma Tarihi": st.column_config.TextColumn("Tarih", width="small"),
         "Kapanış (TL)": st.column_config.NumberColumn("Fiyat (TL)", width="small"),
         "F/K": st.column_config.NumberColumn("F/K", width="small"),
         "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
