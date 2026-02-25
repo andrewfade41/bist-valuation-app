@@ -4,11 +4,48 @@ import os
 from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
+import streamlit.components.v1 as components
 
 # Load environment variables
 load_dotenv()
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
+
+@st.dialog("TradingView Analizi", width="large")
+def show_tradingview(ticker):
+    components.html(f"""
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div id="tradingview_{ticker}" style="height:550px;width:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.widget(
+          {{
+          "autosize": true,
+          "symbol": "BIST:{ticker}",
+          "interval": "D",
+          "timezone": "Europe/Istanbul",
+          "theme": "dark",
+          "style": "1",
+          "locale": "tr",
+          "enable_publishing": false,
+          "backgroundColor": "rgba(0, 0, 0, 1)",
+          "gridColor": "rgba(42, 46, 57, 0.06)",
+          "hide_top_toolbar": false,
+          "hide_legend": false,
+          "save_image": false,
+          "container_id": "tradingview_{ticker}",
+          "studies": [
+            "RSI@tv-basicstudies",
+            "MASimple@tv-basicstudies"
+          ],
+          "studies_overrides": {{
+             "moving average.length": 200
+          }}
+          }}
+          );
+          </script>
+        </div>
+    """, height=570)
 
 st.title("📈 Borsa İstanbul (BIST) Adil Değer & Hedef Fiyat Hesaplama")
 st.markdown("""
@@ -170,7 +207,7 @@ if st.session_state.raw_data is not None:
     }
     
     # Styling the dataframe
-    st.dataframe(
+    event = st.dataframe(
         df_display.style
         .map(color_potential, subset=['Potansiyel Getiri (%)'])
         .map(color_rsi, subset=['RSI (14)'])
@@ -193,5 +230,12 @@ if st.session_state.raw_data is not None:
         }),
         use_container_width=True,
         height=600,
-        column_config=column_widths
+        column_config=column_widths,
+        on_select="rerun",
+        selection_mode="single-row"
     )
+    
+    if event and event.selection and event.selection.rows:
+        selected_index = event.selection.rows[0]
+        selected_ticker = df_display.iloc[selected_index]['Kod']
+        show_tradingview(selected_ticker)
