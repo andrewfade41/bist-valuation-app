@@ -66,6 +66,7 @@ def format_html_email(df_calc, changed_tickers):
               <th>Fiyat (TL)</th>
               <th>F/K</th>
               <th>PD/DD</th>
+              <th>Graham Say.</th>
               <th>Potansiyel Getiri</th>
               <th>RSI (14)</th>
               <th>MA200 Uzaklık</th>
@@ -90,6 +91,8 @@ def format_html_email(df_calc, changed_tickers):
             fk = f"{row['F/K']:.2f}" if pd.notna(row['F/K']) else "-"
             pddd = f"{row['PD/DD']:.2f}" if pd.notna(row['PD/DD']) else "-"
             
+            graham = f"₺{row['Graham Sayısı']:.2f}" if 'Graham Sayısı' in row and pd.notna(row['Graham Sayısı']) else "-"
+            
             pot_val = row['Potansiyel Getiri (%)']
             pot_color = "green" if pot_val and pot_val > 0 else "red"
             pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
@@ -111,6 +114,7 @@ def format_html_email(df_calc, changed_tickers):
               <td>{price}</td>
               <td>{fk}</td>
               <td>{pddd}</td>
+              <td>{graham}</td>
               <td>{pot_str}</td>
               <td>{rsi_str}</td>
               <td>{ma200_str}</td>

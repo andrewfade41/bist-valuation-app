@@ -131,6 +131,10 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
         df['RSI (14)'] = pd.to_numeric(df['RSI (14)'], errors='coerce')
         df['Graham Skoru'] += ((df['RSI (14)'] > 0) & (df['RSI (14)'] < 60)).astype(int)
 
+    # Calculate Graham Number (Graham Sayısı)
+    graham_conditions = (df['EPS_Derived'] > 0) & (df['BVPS_Derived'] > 0)
+    df['Graham Sayısı'] = np.where(graham_conditions, np.sqrt(22.5 * df['EPS_Derived'] * df['BVPS_Derived']), np.nan)
+
     # Sort by Potential Return (Büyükten Küçüğe), keeping NaNs at the end
     df = df.sort_values(by='Potansiyel Getiri (%)', ascending=False, na_position='last')
     
@@ -138,7 +142,7 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
     cols_to_round = ['Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
                      'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)', 
                      'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)', 'ROE_Derived',
-                     'MA200 Uzaklık (%)', 'RSI (14)']
+                     'MA200 Uzaklık (%)', 'RSI (14)', 'Graham Sayısı']
     for col in cols_to_round:
         # We need to fillna with None or np.nan before formatting, but actually round handles NaNs gracefully
         if col in df.columns:

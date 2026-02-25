@@ -1,7 +1,12 @@
 import streamlit as st
 import pandas as pd
+import os
+from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
+
+# Load environment variables
+load_dotenv()
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
 
@@ -62,7 +67,7 @@ if st.session_state.raw_data is not None:
     st.markdown("---")
     # Filters
     st.subheader("🔍 Filtreleme")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         min_potential = st.number_input("Minimum Potansiyel Getiri (%)", value=0.0)
     with col2:
@@ -75,6 +80,15 @@ if st.session_state.raw_data is not None:
         # Get periods dynamically
         all_periods = sorted(df_calc['Son Dönem'].dropna().astype(str).unique().tolist(), reverse=True)
         selected_periods = st.multiselect("Bilanço Dönemi Seç", options=all_periods, default=[])
+    with col5:
+        st.write("") # spacer to align with inputs
+        st.write("")
+        # Add Portfolio filter
+        portfolio_tickers_env = os.getenv("PORTFOLIO_TICKERS", "")
+        portfolio_tickers = [t.strip().upper() for t in portfolio_tickers_env.split(",") if t.strip()]
+        
+        show_portfolio = st.checkbox("Sadece Portföyüm", value=False, 
+                                     help="Sadece .env dosyasındaki hisselerinizi gösterir." if portfolio_tickers else ".env dosyasında PORTFOLIO_TICKERS bulunamadı.")
         
     df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
     if search_ticker:
@@ -83,13 +97,18 @@ if st.session_state.raw_data is not None:
         df_filtered = df_filtered[df_filtered['Sektör'].isin(selected_sectors)]
     if selected_periods:
         df_filtered = df_filtered[df_filtered['Son Dönem'].isin(selected_periods)]
+    if show_portfolio:
+        if portfolio_tickers:
+            df_filtered = df_filtered[df_filtered['Kod'].isin(portfolio_tickers)]
+        else:
+            st.warning("Gösterilecek portföy hissesi bulunamadı. Lütfen `.env` dosyasında `PORTFOLIO_TICKERS=THYAO, TUPRS` şeklinde tanımlama yapınız.")
         
     st.subheader(f"📊 Değerleme Tablosu ({len(df_filtered)} Hisse)")
     
     # Select columns to display
     display_cols = [
         'Kod', 'Sektör', 'Son Dönem', 'Bilanço Açıklanma Tarihi', 'Kapanış (TL)', 'F/K', 'PD/DD', 
-        'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru',
+        'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
         'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)'
@@ -136,6 +155,7 @@ if st.session_state.raw_data is not None:
         "RSI (14)": st.column_config.NumberColumn("RSI", width="small"),
         "MA200 Uzaklık (%)": st.column_config.NumberColumn("MA200 Uzaklık", width="small"),
         "Graham Skoru": st.column_config.NumberColumn("Graham Skoru (10)", width="small"),
+        "Graham Sayısı": st.column_config.NumberColumn("Graham Say. (TL)", width="small"),
         "Hedef Fiyat (F/K)": st.column_config.NumberColumn("HF (F/K)", width="small"),
         "Hedef Fiyat (PD/DD)": st.column_config.NumberColumn("HF (PD/DD)", width="small"),
         "Hedef Fiyat (ROE)": st.column_config.NumberColumn("HF (ROE)", width="small"),
@@ -160,6 +180,7 @@ if st.session_state.raw_data is not None:
             "Hedef Fiyat (BIST Ort.)": "₺{:.2f}",
             "Hedef Fiyat (Sektör PD/DD)": "₺{:.2f}",
             "Nihai Hedef Fiyat": "₺{:.2f}",
+            "Graham Sayısı": "₺{:.2f}",
             "Potansiyel Getiri (%)": "{:.2f}%",
             "MA200 Uzaklık (%)": "{:.2f}%",
             "RSI (14)": "{:.2f}",
