@@ -11,42 +11,6 @@ load_dotenv()
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
 
-@st.dialog("TradingView Analizi", width="large")
-def show_tradingview(ticker):
-    components.html(f"""
-        <div class="tradingview-widget-container" style="height:100%;width:100%">
-          <div id="tradingview_{ticker}" style="height:550px;width:100%"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget(
-          {{
-          "autosize": true,
-          "symbol": "BIST:{ticker}",
-          "interval": "D",
-          "timezone": "Europe/Istanbul",
-          "theme": "dark",
-          "style": "1",
-          "locale": "tr",
-          "enable_publishing": false,
-          "backgroundColor": "rgba(0, 0, 0, 1)",
-          "gridColor": "rgba(42, 46, 57, 0.06)",
-          "hide_top_toolbar": false,
-          "hide_legend": false,
-          "save_image": false,
-          "container_id": "tradingview_{ticker}",
-          "studies": [
-            "RSI@tv-basicstudies",
-            "MASimple@tv-basicstudies"
-          ],
-          "studies_overrides": {{
-             "moving average.length": 200
-          }}
-          }}
-          );
-          </script>
-        </div>
-    """, height=570)
-
 st.title("📈 Borsa İstanbul (BIST) Adil Değer & Hedef Fiyat Hesaplama")
 st.markdown("""
 Bu uygulama temel analiz çarpanlarını kullanarak Borsa İstanbul şirketlerinin **olması gereken fiyatlarını (adil değerini)** hesaplar. 
@@ -160,6 +124,9 @@ if st.session_state.raw_data is not None:
     
     df_display = df_filtered[display_cols].copy()
     
+    # URL kolonunu oluştur (TradingView'e doğrudan tıklanabilmesi için)
+    df_display['Kod'] = df_display['Kod'].apply(lambda x: f"https://www.tradingview.com/chart/?symbol=BIST:{x}")
+    
     # Formatter for Streamlit Dataframe
     def color_potential(val):
         color = 'green' if val > 0 else 'red'
@@ -187,7 +154,7 @@ if st.session_state.raw_data is not None:
         
     # Sütunları daraltmak ve biçimlendirmek için Column Config
     column_widths = {
-        "Kod": st.column_config.TextColumn("Kod", width="small"),
+        "Kod": st.column_config.LinkColumn("Kod", width="small", display_text=r"https://www\.tradingview\.com/chart/\?symbol=BIST:(.*)"),
         "Sektör": st.column_config.TextColumn("Sektör", width="small"),
         "Son Dönem": st.column_config.TextColumn("Dönem", width="small"),
         "Kapanış (TL)": st.column_config.NumberColumn("Fiyat (TL)", width="small"),
@@ -207,7 +174,7 @@ if st.session_state.raw_data is not None:
     }
     
     # Styling the dataframe
-    event = st.dataframe(
+    st.dataframe(
         df_display.style
         .map(color_potential, subset=['Potansiyel Getiri (%)'])
         .map(color_rsi, subset=['RSI (14)'])
@@ -230,12 +197,5 @@ if st.session_state.raw_data is not None:
         }),
         use_container_width=True,
         height=600,
-        column_config=column_widths,
-        on_select="rerun",
-        selection_mode="single-row"
+        column_config=column_widths
     )
-    
-    if event and event.selection and event.selection.rows:
-        selected_index = event.selection.rows[0]
-        selected_ticker = df_display.iloc[selected_index]['Kod']
-        show_tradingview(selected_ticker)
