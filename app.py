@@ -159,9 +159,9 @@ if st.session_state.raw_data is not None:
         "Hedef Fiyat (F/K)": st.column_config.NumberColumn("HF (F/K)", width="small"),
         "Hedef Fiyat (PD/DD)": st.column_config.NumberColumn("HF (PD/DD)", width="small"),
         "Hedef Fiyat (ROE)": st.column_config.NumberColumn("HF (ROE)", width="small"),
-        "Hedef Fiyat (BIST Ort.)": st.column_config.NumberColumn("HF (BIST Ort.)", width="medium"),
-        "Hedef Fiyat (Sektör PD/DD)": st.column_config.NumberColumn("HF (Sektör)", width="medium"),
-        "Nihai Hedef Fiyat": st.column_config.NumberColumn("Nihai Hedef Fiyat", width="medium"),
+        "Hedef Fiyat (BIST Ort.)": st.column_config.NumberColumn("HF (BIST Ort.)", width="small"),
+        "Hedef Fiyat (Sektör PD/DD)": st.column_config.NumberColumn("HF (Sektör)", width="small"),
+        "Nihai Hedef Fiyat": st.column_config.NumberColumn("Nihai Hedef Fiyat", width="small"),
         "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small")
     }
     
