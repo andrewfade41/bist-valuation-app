@@ -72,6 +72,7 @@ if st.session_state.raw_data is not None:
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         min_potential = st.number_input("Minimum Potansiyel Getiri (%)", value=0.0)
+        min_graham = st.number_input("Minimum Graham Skoru", min_value=0.0, max_value=10.0, value=0.0, step=1.0)
     with col2:
         search_ticker = st.text_input("Hisse Kodu Ara (Örn: THYAO)").upper()
     with col3:
@@ -100,6 +101,9 @@ if st.session_state.raw_data is not None:
         hide_no_fk = st.checkbox("F/K'sı Olmayanları Gizle", value=False, help="F/K değeri bulunmayan (zarar eden veya verisi eksik) hisseleri tablodan çıkarır.")
         
     df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
+    if 'Graham Skoru' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Graham Skoru'].fillna(0) >= min_graham]
+        
     if hide_no_fk:
         df_filtered = df_filtered[df_filtered['F/K'].notna() & (df_filtered['F/K'] > 0)]
     if search_ticker:
@@ -226,6 +230,9 @@ if st.session_state.raw_data is not None:
     
     # URL kolonunu oluştur (TradingView'e doğrudan tıklanabilmesi için)
     df_display['Kod'] = df_display['Kod'].apply(lambda x: f"https://www.tradingview.com/chart/?symbol=BIST:{x}")
+    
+    # Kod sütununu sola sabitlemek için index yap
+    df_display.set_index('Kod', inplace=True)
     
     # Formatter for Streamlit Dataframe
     def color_potential(val):
