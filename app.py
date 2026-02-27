@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
+from portfolio_opt import optimize_portfolio
 import streamlit.components.v1 as components
 
 # Load environment variables
@@ -95,8 +96,12 @@ if st.session_state.raw_data is not None:
         
         show_portfolio = st.checkbox("Sadece Portföyüm", value=False, 
                                      help="Sadece .env veya Streamlit secrets dosyasındaki hisselerinizi gösterir." if portfolio_tickers else "Secret/Env dosyasında PORTFOLIO_TICKERS bulunamadı.")
+        show_minervini = st.checkbox("🎯 Minervini Trend Filtresi", value=False, help="Minervini trend kriterlerine uyan, yükseliş eğilimindeki hisseleri süzer.")
+        hide_no_fk = st.checkbox("F/K'sı Olmayanları Gizle", value=False, help="F/K değeri bulunmayan (zarar eden veya verisi eksik) hisseleri tablodan çıkarır.")
         
     df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
+    if hide_no_fk:
+        df_filtered = df_filtered[df_filtered['F/K'].notna() & (df_filtered['F/K'] > 0)]
     if search_ticker:
         df_filtered = df_filtered[df_filtered['Kod'].str.contains(search_ticker, case=False, na=False)]
     if selected_sectors:
@@ -108,8 +113,96 @@ if st.session_state.raw_data is not None:
             df_filtered = df_filtered[df_filtered['Kod'].isin(portfolio_tickers)]
         else:
             st.warning("Gösterilecek portföy hissesi bulunamadı. Lütfen `.env` (lokal) veya **Streamlit Secrets** (cloud) üzerinde `PORTFOLIO_TICKERS=THYAO, TUPRS` şeklinde tanımlama yapınız.")
+            
+    # --- Portfolio Optimization UI ---
+    st.markdown("---")
+    with st.expander("🤖 Yapay Zeka ile Portföy Optimizasyonu (Markowitz)"):
+        st.markdown("İdeal getiri ve risk oranını (Maksimum Sharpe) yakalamak için **tabloda filtrelenmiş olan** hisselerin son 2 yıllık fiyat dalgalanması (riski) ve güncel **Bilanço Potansiyel Getirisi** kullanılarak en uygun ağırlıklar hesaplanacaktır.")
+        
+        opt_tickers = df_filtered['Kod'].tolist()
+        if len(opt_tickers) < 2:
+            st.warning("Optimizasyon için tabloda en az 2 hisse bulunmalıdır.")
+        elif len(opt_tickers) > 60:
+            st.warning(f"Tabloda {len(opt_tickers)} hisse var. Aşırı veri indirmesi API engeline takılabileceği ve çok yavaş çalışacağı için lütfen filtreleri kullanarak hisse sayısını en fazla 60'a düşürünüz. (Örn: Sektör seçin veya Potansiyel Getiriyi artırın)")
+        else:
+            if st.button(f"Filtrelenmiş {len(opt_tickers)} Hisse İçin Ağırlıkları Hesapla", type="primary", key="btn_opt"):
+                with st.spinner("Geçmiş piyasa verileri indiriliyor ve temel analiz beklentileriniz ile optimize ediliyor..."):
+                    
+                    # Create custom returns dict from the calculated 'Potansiyel Getiri (%)'
+                    # We divide by 100 because the percentage is displayed as 50.0 instead of 0.50
+                    custom_returns = dict(zip(df_filtered['Kod'], df_filtered['Potansiyel Getiri (%)'] / 100.0))
+                    
+                    weights, perf, warning_msg = optimize_portfolio(opt_tickers, custom_returns_dict=custom_returns)
+                    
+                    if warning_msg:
+                        st.warning(warning_msg)
+                        
+                    if weights and isinstance(perf, dict):
+                        col_w, col_p = st.columns([2, 1])
+                        with col_w:
+                            st.write("**İdeal Dağılım Ağırlıkları:**")
+                            weight_df = pd.DataFrame(list(weights.items()), columns=['Hisse', 'Ağırlık'])
+                            weight_df['Ağırlık (%)'] = (weight_df['Ağırlık'] * 100).round(2)
+                            st.dataframe(weight_df[['Hisse', 'Ağırlık (%)']].style.format({"Ağırlık (%)": "{:.2f}%"}))
+                        with col_p:
+                            st.write("**Beklenen Yıllık Performans:**")
+                            st.metric("Yıllık Beklenen Getiri", f"%{perf['expected_return']*100:.2f}")
+                            st.metric("Yıllık Volatilite (Risk)", f"%{perf['volatility']*100:.2f}")
+                            st.metric("Sharpe Oranı", f"{perf['sharpe_ratio']:.2f}", help="1'in üzeri iyidir. Riske göre getiriyi ölçer.")
+                    else:
+                        st.error(str(perf))
+                        
+    # --- DCF MODEL UI ---
+    st.markdown("---")
+    with st.expander("📉 Tekli Hisse İndirgenmiş Nakit Akımları (DCF) Hesaplayıcı"):
+        st.markdown("Seçtiğiniz bir hissenin güncel Serbest Nakit Akımı, Nakit Varlıkları ve Borçları yfinance üzerinden anlık çekilerek 10 yıllık nakit akımı projeksiyonu (DCF) ile Gerçek Değeri (Intrinsic Value) hesaplanır.")
+        
+        ca, cb, cc, cd = st.columns(4)
+        with ca:
+            dcf_ticker = st.text_input("DCF Hisse Kodu (Örn: THYAO)", key="dcf_ticker").upper()
+        with cb:
+            dcf_g1 = st.number_input("1-5 Yıllık Büyüme Beklentisi (%)", min_value=-50.0, max_value=300.0, value=25.0, step=1.0)
+        with cc:
+            dcf_g2 = st.number_input("6-10 Yıllık Büyüme Beklentisi (%)", min_value=-50.0, max_value=300.0, value=15.0, step=1.0)
+        with cd:
+            dcf_wacc = st.number_input("İndirgeme Oranı / WACC (%)", min_value=1.0, max_value=100.0, value=35.0, step=1.0)
+            
+        if st.button("DCF Adil Değerini Hesapla", type="primary", key="btn_dcf"):
+            if not dcf_ticker.strip():
+                st.warning("Lütfen bir hisse kodu girin.")
+            else:
+                with st.spinner(f"{dcf_ticker} için bilanço verileri çekiliyor ve DCF hesaplanıyor..."):
+                    from dcf_model import calculate_dcf
+                    iv, cp, details, err = calculate_dcf(
+                        ticker=dcf_ticker,
+                        growth_rate_1_5=dcf_g1 / 100.0,
+                        growth_rate_6_10=dcf_g2 / 100.0,
+                        discount_rate=dcf_wacc / 100.0
+                    )
+                    
+                    if err:
+                        st.error(err)
+                    else:
+                        st.success("DCF Hesaplaması Tamamlandı!")
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Güncel Fiyat", f"₺{cp:,.2f}")
+                        
+                        pot = ((iv - cp) / cp) * 100
+                        c2.metric("DCF Adil Değer (Intrinsic Value)", f"₺{iv:,.2f}", f"{pot:,.2f}% Potansiyel", delta_color="normal")
+                        
+                        with st.expander("Hesaplama Detayları (₺)"):
+                            det_df = pd.DataFrame(list(details.items()), columns=['Kalem', 'Değer'])
+                            det_df['Değer'] = det_df['Değer'].apply(lambda x: f"₺{x:,.0f}" if isinstance(x, (int, float)) else x)
+                            st.table(det_df.set_index('Kalem'))
+                            
+    st.markdown("---")
         
     st.subheader(f"📊 Değerleme Tablosu ({len(df_filtered)} Hisse)")
+    
+    if show_minervini:
+        if 'Minervini_Uyumlu' in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered['Minervini_Uyumlu'] == True]
+            st.success(f"Minervini Şablonuna Uyan Sadece {len(df_filtered)} Hisse Bulundu.")
     
     # Select columns to display
     display_cols = [
@@ -119,6 +212,13 @@ if st.session_state.raw_data is not None:
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
         'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)'
     ]
+    
+    if show_minervini:
+        display_cols.insert(7, 'MA50')
+        display_cols.insert(8, 'MA150')
+        display_cols.insert(9, '52 Haftalık Zirve')
+        display_cols.insert(10, '52 Haftalık Dip')
+        
     # Sadece mevcut olan kolonları görüntüle (eski önbelleklerde hata vermemesi için)
     display_cols = [col for col in display_cols if col in df_filtered.columns]
     
@@ -162,6 +262,10 @@ if st.session_state.raw_data is not None:
         "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
         "RSI (14)": st.column_config.NumberColumn("RSI", width="small"),
         "MA200 Uzaklık (%)": st.column_config.NumberColumn("MA200 Uzaklık", width="small"),
+        "MA50": st.column_config.NumberColumn("MA50", width="small"),
+        "MA150": st.column_config.NumberColumn("MA150", width="small"),
+        "52 Haftalık Zirve": st.column_config.NumberColumn("52H Zirve", width="small"),
+        "52 Haftalık Dip": st.column_config.NumberColumn("52H Dip", width="small"),
         "Graham Skoru": st.column_config.NumberColumn("Graham Skoru (10)", width="small"),
         "Graham Sayısı": st.column_config.NumberColumn("Graham Say. (TL)", width="small"),
         "Hedef Fiyat (F/K)": st.column_config.NumberColumn("HF (F/K)", width="small"),
@@ -191,6 +295,10 @@ if st.session_state.raw_data is not None:
             "Graham Sayısı": "₺{:.2f}",
             "Potansiyel Getiri (%)": "{:.2f}%",
             "MA200 Uzaklık (%)": "{:.2f}%",
+            "MA50": "₺{:.2f}",
+            "MA150": "₺{:.2f}",
+            "52 Haftalık Zirve": "₺{:.2f}",
+            "52 Haftalık Dip": "₺{:.2f}",
             "RSI (14)": "{:.2f}",
             "F/K": "{:.2f}",
             "PD/DD": "{:.2f}"

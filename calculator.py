@@ -87,6 +87,26 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
     # Potential Profit/Loss Percentage
     df['Potansiyel Getiri (%)'] = ((df['Nihai Hedef Fiyat'] - df['Kapanış (TL)']) / df['Kapanış (TL)']) * 100
     
+    # ------------------ MINERVINI SCREENER ------------------
+    # 1. Current Price > SMA 150 > SMA 200
+    # 2. Current Price > SMA 50
+    # 3. Current Price >= 1.3 * 52 Week Low
+    # 4. Current Price >= 0.75 * 52 Week High
+    
+    # Ensure numerical types
+    for col in ['MA50', 'MA150', 'MA200', '52 Haftalık Zirve', '52 Haftalık Dip', 'Kapanış (TL)']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    if all(c in df.columns for c in ['MA50', 'MA150', 'MA200', '52 Haftalık Zirve', '52 Haftalık Dip', 'Kapanış (TL)']):
+        c1 = (df['Kapanış (TL)'] > df['MA150']) & (df['MA150'] > df['MA200'])
+        c2 = (df['Kapanış (TL)'] > df['MA50'])
+        c3 = (df['Kapanış (TL)'] >= 1.3 * df['52 Haftalık Dip'])
+        c4 = (df['Kapanış (TL)'] >= 0.75 * df['52 Haftalık Zirve'])
+        df['Minervini_Uyumlu'] = c1 & c2 & c3 & c4
+    else:
+        df['Minervini_Uyumlu'] = False
+
     # ------------------ GRAHAM RATING (0-10) ------------------
     # Initialize Graham Score
     df['Graham Skoru'] = 0

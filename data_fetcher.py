@@ -59,7 +59,7 @@ def fetch_tv_data():
         "options": {"lang": "tr"},
         "markets": ["turkey"],
         "symbols": {"query": {"types": ["stock"]}},
-        "columns": ["name", "earnings_release_date", "RSI", "SMA200", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
+        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
     }
@@ -72,13 +72,16 @@ def fetch_tv_data():
                 ticker = row['d'][0]
                 timestamp = row['d'][1]
                 rsi = row['d'][2]
-                sma200 = row['d'][3]
-                current_ratio = row['d'][4]
-                debt_to_equity = row['d'][5]
-                # TV returns debt/equity as a ratio (e.g., 0.50 means 50%) or percentage depending on the field. The test showed 0.046 for THYAO so it's a ratio.
-                dividend_yield = row['d'][6]
-                market_cap = row['d'][7]
-                roe = row['d'][8]
+                sma50 = row['d'][3]
+                sma150 = row['d'][4]
+                sma200 = row['d'][5]
+                high_52w = row['d'][6]
+                low_52w = row['d'][7]
+                current_ratio = row['d'][8]
+                debt_to_equity = row['d'][9]
+                dividend_yield = row['d'][10]
+                market_cap = row['d'][11]
+                roe = row['d'][12]
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -89,7 +92,11 @@ def fetch_tv_data():
                     'Kod': ticker,
                     'Bilanço Açıklanma Tarihi': formatted_date,
                     'RSI (14)': rsi,
+                    'MA50': sma50,
+                    'MA150': sma150,
                     'MA200': sma200,
+                    '52 Haftalık Zirve': high_52w,
+                    '52 Haftalık Dip': low_52w,
                     'Cari Oran': current_ratio,
                     'Borç/Özkaynak': debt_to_equity,
                     'Temettü Verimi': dividend_yield,
