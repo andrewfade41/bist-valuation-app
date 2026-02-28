@@ -74,7 +74,7 @@ if st.session_state.raw_data is not None:
         min_potential = st.number_input("Minimum Potansiyel Getiri (%)", value=0.0)
         min_graham = st.number_input("Minimum Graham Skoru", min_value=0.0, max_value=10.0, value=0.0, step=1.0)
     with col2:
-        search_ticker = st.text_input("Hisse Kodu Ara (Örn: THYAO)").upper()
+        search_ticker = st.text_input("Hisse Kodu Ara (Örn: THYAO, TUPRS)").upper()
     with col3:
         # Get sector list dynamically from calculated dataframe
         all_sectors = sorted(df_calc['Sektör'].astype(str).unique().tolist())
@@ -107,7 +107,10 @@ if st.session_state.raw_data is not None:
     if hide_no_fk:
         df_filtered = df_filtered[df_filtered['F/K'].notna() & (df_filtered['F/K'] > 0)]
     if search_ticker:
-        df_filtered = df_filtered[df_filtered['Kod'].str.contains(search_ticker, case=False, na=False)]
+        search_list = [x.strip() for x in search_ticker.replace(',', ' ').split() if x.strip()]
+        if search_list:
+            pattern = '|'.join(search_list)
+            df_filtered = df_filtered[df_filtered['Kod'].str.contains(pattern, case=False, na=False, regex=True)]
     if selected_sectors:
         df_filtered = df_filtered[df_filtered['Sektör'].isin(selected_sectors)]
     if selected_periods:
