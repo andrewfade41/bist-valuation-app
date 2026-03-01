@@ -10,6 +10,20 @@ import streamlit.components.v1 as components
 # Load environment variables
 load_dotenv()
 
+def load_env_watchlists():
+    watchlists = {}
+    for i in range(1, 6):
+        try:
+            name = st.secrets.get(f"WATCHLIST_{i}_NAME", os.getenv(f"WATCHLIST_{i}_NAME", ""))
+            tickers = st.secrets.get(f"WATCHLIST_{i}_TICKERS", os.getenv(f"WATCHLIST_{i}_TICKERS", ""))
+        except Exception:
+            name = os.getenv(f"WATCHLIST_{i}_NAME", "")
+            tickers = os.getenv(f"WATCHLIST_{i}_TICKERS", "")
+            
+        if name and tickers.strip():
+            watchlists[str(i)] = {"name": name, "tickers": tickers}
+    return watchlists
+
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
 
 st.title("📈 Borsa İstanbul (BIST) Adil Değer & Hedef Fiyat Hesaplama")
@@ -30,6 +44,20 @@ target_pddd = st.sidebar.number_input("Beklenen PD/DD Çarpanı", min_value=0.5,
                                      help="Defter değerinin kaç katından fiyatlanması gerektiğini temsil eder.")
 expected_return_pct = st.sidebar.number_input("Beklenen Risksiz Getiri (%)", min_value=10, max_value=100, value=50, step=5,
                                              help="Mevduat veya risksiz sabit getiri oranını temsil eder.")
+
+st.sidebar.markdown("---")
+st.sidebar.header("📋 Takip Listeleri")
+st.sidebar.markdown("Takip listeleriniz `.env` veya Streamlit Secrets üzerinden yüklenmektedir. (Örn: `WATCHLIST_1_NAME`)")
+
+watchlists = load_env_watchlists()
+if watchlists:
+    st.sidebar.success(f"{len(watchlists)} adet liste yüklendi.")
+    for key, data in watchlists.items():
+        st.sidebar.caption(f"**{data['name']}**: {data['tickers'][:30]}...")
+else:
+    st.sidebar.info("Ayar dosyasında aktif bir takip listesi bulunamadı.")
+    
+st.sidebar.markdown("---")
 
 # Fetch Data Button
 if 'raw_data' not in st.session_state:
@@ -95,8 +123,12 @@ if st.session_state.raw_data is not None:
             
         portfolio_tickers = [t.strip().upper() for t in portfolio_tickers_env.split(",") if t.strip()]
         
-        show_portfolio = st.checkbox("Sadece Portföyüm", value=False, 
-                                     help="Sadece .env veya Streamlit secrets dosyasındaki hisselerinizi gösterir." if portfolio_tickers else "Secret/Env dosyasında PORTFOLIO_TICKERS bulunamadı.")
+        watchlists_filter = load_env_watchlists()
+        active_lists = {wl["name"]: wl["tickers"] for wl in watchlists_filter.values()}
+        
+        filter_options = ["Tümü", "Sadece Portföyüm"] + list(active_lists.keys())
+        selected_filter = st.selectbox("Gösterim Filtresi", options=filter_options, index=0)
+        
         show_minervini = st.checkbox("🎯 Minervini Trend Filtresi", value=False, help="Minervini trend kriterlerine uyan, yükseliş eğilimindeki hisseleri süzer.")
         hide_no_fk = st.checkbox("F/K'sı Olmayanları Gizle", value=False, help="F/K değeri bulunmayan (zarar eden veya verisi eksik) hisseleri tablodan çıkarır.")
         
@@ -115,11 +147,18 @@ if st.session_state.raw_data is not None:
         df_filtered = df_filtered[df_filtered['Sektör'].isin(selected_sectors)]
     if selected_periods:
         df_filtered = df_filtered[df_filtered['Son Dönem'].isin(selected_periods)]
-    if show_portfolio:
+    if selected_filter == "Sadece Portföyüm":
         if portfolio_tickers:
             df_filtered = df_filtered[df_filtered['Kod'].isin(portfolio_tickers)]
         else:
             st.warning("Gösterilecek portföy hissesi bulunamadı. Lütfen `.env` (lokal) veya **Streamlit Secrets** (cloud) üzerinde `PORTFOLIO_TICKERS=THYAO, TUPRS` şeklinde tanımlama yapınız.")
+    elif selected_filter in active_lists:
+        wl_tickers_str = active_lists[selected_filter]
+        wl_tickers = [t.strip().upper() for t in wl_tickers_str.replace(',', ' ').split() if t.strip()]
+        if wl_tickers:
+            df_filtered = df_filtered[df_filtered['Kod'].isin(wl_tickers)]
+        else:
+            st.warning(f"'{selected_filter}' listesinde uygun hisse bulunamadı. Lütfen sol menüden listeye hisse ekleyin.")
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
