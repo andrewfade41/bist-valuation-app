@@ -106,7 +106,14 @@ if st.session_state.raw_data is not None:
     with col3:
         # Get sector list dynamically from calculated dataframe
         all_sectors = sorted(df_calc['Sektör'].astype(str).unique().tolist())
-        selected_sectors = st.multiselect("Sektör Seç", options=all_sectors, default=[])
+        
+        # Create a sector count mapping for display
+        sector_counts = stats['sector_avg_df'].set_index('Sektör')['Hisse_Sayısı'].to_dict()
+        def sector_format_func(option):
+            count = sector_counts.get(option, 0)
+            return f"{option} ({count})"
+            
+        selected_sectors = st.multiselect("Sektör Seç", options=all_sectors, default=[], format_func=sector_format_func)
     with col4:
         # Get periods dynamically
         all_periods = sorted(df_calc['Son Dönem'].dropna().astype(str).unique().tolist(), reverse=True)
