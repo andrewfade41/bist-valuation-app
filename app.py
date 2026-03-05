@@ -259,7 +259,7 @@ if st.session_state.raw_data is not None:
     
     # Select columns to display
     display_cols = [
-        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 
+        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 'Halka Açıklık (%)',
         'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
@@ -330,7 +330,8 @@ if st.session_state.raw_data is not None:
         "Hedef Fiyat (BIST Ort.)": st.column_config.NumberColumn("HF (BIST Ort.)", width="small"),
         "Hedef Fiyat (Sektör PD/DD)": st.column_config.NumberColumn("HF (Sektör)", width="small"),
         "Nihai Hedef Fiyat": st.column_config.NumberColumn("Nihai Hedef Fiyat", width="small"),
-        "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small")
+        "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small"),
+        "Halka Açıklık (%)": st.column_config.NumberColumn("Halka Açıklık (%)", width="small")
     }
     
     # Styling the dataframe
@@ -357,7 +358,8 @@ if st.session_state.raw_data is not None:
             "52 Haftalık Dip": "₺{:.2f}",
             "RSI (14)": "{:.2f}",
             "F/K": "{:.2f}",
-            "PD/DD": "{:.2f}"
+            "PD/DD": "{:.2f}",
+            "Halka Açıklık (%)": "{:.2f}%"
         }),
         use_container_width=True,
         height=600,

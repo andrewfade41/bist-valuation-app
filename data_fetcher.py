@@ -59,7 +59,7 @@ def fetch_tv_data():
         "options": {"lang": "tr"},
         "markets": ["turkey"],
         "symbols": {"query": {"types": ["stock"]}},
-        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
+        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity", "float_shares_outstanding", "total_shares_outstanding"],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
     }
@@ -82,6 +82,13 @@ def fetch_tv_data():
                 dividend_yield = row['d'][10]
                 market_cap = row['d'][11]
                 roe = row['d'][12]
+                float_shares = row['d'][13]
+                total_shares = row['d'][14]
+                
+                # Calculate Free Float Ratio
+                halka_aciklik = None
+                if float_shares and total_shares and total_shares > 0:
+                    halka_aciklik = (float_shares / total_shares) * 100
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -101,7 +108,8 @@ def fetch_tv_data():
                     'Borç/Özkaynak': debt_to_equity,
                     'Temettü Verimi': dividend_yield,
                     'Piyasa Değeri': market_cap,
-                    'TV_ROE': roe
+                    'TV_ROE': roe,
+                    'Halka Açıklık (%)': halka_aciklik
                 })
     except Exception as e:
         print("Error fetching TV data:", e)
