@@ -27,7 +27,7 @@ def fetch_bist_fundamentals():
         if set(['Kod', 'F/K', 'PD/DD', 'Son Dönem']).issubset(df.columns):
             target_df = df
         if 'Halka Açıklık Oranı (%)' in df.columns and 'Kod' in df.columns:
-            halka_aciklik_df = df[['Kod', 'Halka Açıklık Oranı (%)']]
+            halka_aciklik_df = df[['Kod', 'Halka Açıklık Oranı (%)']].copy()
             
     if target_df is None:
         print("Could not find the target table on the page.")

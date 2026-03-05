@@ -139,7 +139,12 @@ if st.session_state.raw_data is not None:
         show_minervini = st.checkbox("🎯 Minervini Trend Filtresi", value=False, help="Minervini trend kriterlerine uyan, yükseliş eğilimindeki hisseleri süzer.")
         hide_no_fk = st.checkbox("F/K'sı Olmayanları Gizle", value=False, help="F/K değeri bulunmayan (zarar eden veya verisi eksik) hisseleri tablodan çıkarır.")
         
-    df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
+    # Filter based on potential return, but include NaNs if min_potential is 0 or less
+    if min_potential <= 0:
+        df_filtered = df_calc.copy()
+    else:
+        df_filtered = df_calc[df_calc['Potansiyel Getiri (%)'] >= min_potential]
+        
     if 'Graham Skoru' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['Graham Skoru'].fillna(0) >= min_graham]
         
