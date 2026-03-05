@@ -308,6 +308,14 @@ if st.session_state.raw_data is not None:
         if score <= 3: return 'color: red;'
         return ''
         
+    def color_halka_aciklik(val):
+        if pd.isna(val): return ''
+        if val < 15: return 'color: orange; font-weight: bold;' # Düşük likidite
+        if 15 <= val <= 50: return 'color: green; font-weight: bold;' # İdeal aralık
+        if 50 < val <= 80: return 'color: #DAA520;' # Altın sarısı (Biraz yüksek)
+        if val > 80: return 'color: red; font-weight: bold;' # Çok yüksek
+        return ''
+        
     # Sütunları daraltmak ve biçimlendirmek için Column Config
     column_widths = {
         "Kod": st.column_config.LinkColumn("Kod", width="small", display_text=r"https://www\.tradingview\.com/chart/\?symbol=BIST:(.*)"),
@@ -341,6 +349,7 @@ if st.session_state.raw_data is not None:
         .map(color_rsi, subset=['RSI (14)'])
         .map(color_ma200, subset=['MA200 Uzaklık (%)'])
         .map(color_graham, subset=['Graham Skoru'])
+        .map(color_halka_aciklik, subset=['Halka Açıklık (%)'])
         .format({
             "Kapanış (TL)": "₺{:.2f}",
             "Hedef Fiyat (F/K)": "₺{:.2f}",

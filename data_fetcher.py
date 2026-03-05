@@ -18,13 +18,16 @@ def fetch_bist_fundamentals():
         print(f"Error fetching data: {e}")
         return None
 
-    # We need the table containing F/K, PD/DD, and Son Dönem. (Table 6 in our test)
-    # Let's search for the dataframe that has 'F/K' and 'PD/DD' and 'Son Dönem'
+    # We need the table containing F/K, PD/DD, and Son Dönem. (Table 6)
+    # And Table 2 for Halka Açıklık Oranı (%)
     target_df = None
+    halka_aciklik_df = None
+    
     for df in dfs:
         if set(['Kod', 'F/K', 'PD/DD', 'Son Dönem']).issubset(df.columns):
             target_df = df
-            break
+        if 'Halka Açıklık Oranı (%)' in df.columns and 'Kod' in df.columns:
+            halka_aciklik_df = df[['Kod', 'Halka Açıklık Oranı (%)']]
             
     if target_df is None:
         print("Could not find the target table on the page.")
@@ -39,8 +42,14 @@ def fetch_bist_fundamentals():
     for col in numeric_cols:
         target_df[col] = pd.to_numeric(target_df[col], errors='coerce')
         
+    # Merge Halka Açıklık from Table 2
+    if halka_aciklik_df is not None:
+        halka_aciklik_df['Halka Açıklık Oranı (%)'] = pd.to_numeric(halka_aciklik_df['Halka Açıklık Oranı (%)'], errors='coerce')
+        target_df = target_df.merge(halka_aciklik_df, on='Kod', how='left')
+        # Rename for consistency with app.py if needed, app.py uses 'Halka Açıklık (%)'
+        target_df = target_df.rename(columns={'Halka Açıklık Oranı (%)': 'Halka Açıklık (%)'})
+
     # Sadece kapanış fiyatı olmayan hisseleri çıkart (işlem görmeyen/tahtası kapalı)
-    # F/K veya PD/DD'si NaN olanları da hesaplamaya dahil etmeye çalışacağız
     target_df = target_df.dropna(subset=['Kapanış (TL)'])
     
     # Merge TV Data
@@ -59,7 +68,7 @@ def fetch_tv_data():
         "options": {"lang": "tr"},
         "markets": ["turkey"],
         "symbols": {"query": {"types": ["stock"]}},
-        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity", "float_shares_outstanding", "total_shares_outstanding"],
+        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
     }
@@ -82,13 +91,6 @@ def fetch_tv_data():
                 dividend_yield = row['d'][10]
                 market_cap = row['d'][11]
                 roe = row['d'][12]
-                float_shares = row['d'][13]
-                total_shares = row['d'][14]
-                
-                # Calculate Free Float Ratio
-                halka_aciklik = None
-                if float_shares and total_shares and total_shares > 0:
-                    halka_aciklik = (float_shares / total_shares) * 100
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -108,8 +110,7 @@ def fetch_tv_data():
                     'Borç/Özkaynak': debt_to_equity,
                     'Temettü Verimi': dividend_yield,
                     'Piyasa Değeri': market_cap,
-                    'TV_ROE': roe,
-                    'Halka Açıklık (%)': halka_aciklik
+                    'TV_ROE': roe
                 })
     except Exception as e:
         print("Error fetching TV data:", e)
