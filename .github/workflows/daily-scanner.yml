@@ -44,6 +44,7 @@ jobs:
           if [ -f is_yatirim_periods.json ]; then
             git add is_yatirim_periods.json
             git commit -m "Auto update: Bilanço dönemleri" || echo "No changes"
+            git pull --rebase origin main
             git push
           else
             echo "is_yatirim_periods.json not found, skipping commit"
