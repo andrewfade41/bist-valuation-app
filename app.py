@@ -265,6 +265,7 @@ if st.session_state.raw_data is not None:
     # Select columns to display
     display_cols = [
         'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 'Halka Açıklık (%)',
+        'Yabancı Payı (%)', 'Takas Değişimi (bp)',
         'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
@@ -321,6 +322,14 @@ if st.session_state.raw_data is not None:
         if val > 80: return 'color: red; font-weight: bold;' # Çok yüksek
         return ''
         
+    def color_takas_degisimi(val):
+        if pd.isna(val): return ''
+        if val > 50: return 'color: white; background-color: darkgreen; font-weight: bold;'
+        if val > 0: return 'color: green; font-weight: bold;'
+        if val < -50: return 'color: white; background-color: darkred; font-weight: bold;'
+        if val < 0: return 'color: red; font-weight: bold;'
+        return ''
+        
     # Sütunları daraltmak ve biçimlendirmek için Column Config
     column_widths = {
         "Kod": st.column_config.LinkColumn("Kod", width="small", display_text=r"https://www\.tradingview\.com/chart/\?symbol=BIST:(.*)"),
@@ -344,7 +353,9 @@ if st.session_state.raw_data is not None:
         "Hedef Fiyat (Sektör PD/DD)": st.column_config.NumberColumn("HF (Sektör)", width="small"),
         "Nihai Hedef Fiyat": st.column_config.NumberColumn("Nihai Hedef Fiyat", width="small"),
         "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small"),
-        "Halka Açıklık (%)": st.column_config.NumberColumn("Halka Açıklık (%)", width="small")
+        "Halka Açıklık (%)": st.column_config.NumberColumn("Halka Açıklık (%)", width="small"),
+        "Yabancı Payı (%)": st.column_config.NumberColumn("Yabancı Payı (%)", width="small"),
+        "Takas Değişimi (bp)": st.column_config.NumberColumn("Takas Değişimi (bp)", width="small")
     }
     
     # Styling the dataframe
@@ -355,6 +366,7 @@ if st.session_state.raw_data is not None:
         .map(color_ma200, subset=['MA200 Uzaklık (%)'])
         .map(color_graham, subset=['Graham Skoru'])
         .map(color_halka_aciklik, subset=['Halka Açıklık (%)'])
+        .map(color_takas_degisimi, subset=['Takas Değişimi (bp)'])
         .format({
             "Kapanış (TL)": "₺{:.2f}",
             "Hedef Fiyat (F/K)": "₺{:.2f}",
@@ -373,7 +385,9 @@ if st.session_state.raw_data is not None:
             "RSI (14)": "{:.2f}",
             "F/K": "{:.2f}",
             "PD/DD": "{:.2f}",
-            "Halka Açıklık (%)": "{:.2f}%"
+            "Halka Açıklık (%)": "{:.2f}%",
+            "Yabancı Payı (%)": "{:.2f}%",
+            "Takas Değişimi (bp)": "{:.0f}"
         }),
         use_container_width=True,
         height=600,

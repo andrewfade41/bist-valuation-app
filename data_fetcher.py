@@ -20,14 +20,26 @@ def fetch_bist_fundamentals():
 
     # We need the table containing F/K, PD/DD, and Son Dönem. (Table 6)
     # And Table 2 for Halka Açıklık Oranı (%)
+    # And Table 4 for Yabancı Oranları
     target_df = None
     halka_aciklik_df = None
+    yabanci_df = None
     
     for df in dfs:
+        # Table 6: Fundamentals
         if set(['Kod', 'F/K', 'PD/DD', 'Son Dönem']).issubset(df.columns):
             target_df = df
+        # Table 2: Free Float
         if 'Halka Açıklık Oranı (%)' in df.columns and 'Kod' in df.columns:
             halka_aciklik_df = df[['Kod', 'Halka Açıklık Oranı (%)']].copy()
+        # Table 4: Foreign Ratios
+        if 'Kod' in df.columns and 'Değişim (Baz Puan)' in df.columns:
+            # Table 4 structure: [Kod, Kapanış, StartDate%, EndDate%, ChangeBps, Effect]
+            # EndDate% is index 3, ChangeBps is index 4
+            cols = df.columns.tolist()
+            yabanci_df = df[['Kod']].copy()
+            yabanci_df['Yabancı Payı (%)'] = pd.to_numeric(df.iloc[:, 3], errors='coerce')
+            yabanci_df['Takas Değişimi (bp)'] = pd.to_numeric(df.iloc[:, 4], errors='coerce')
             
     if target_df is None:
         print("Could not find the target table on the page.")
@@ -46,8 +58,11 @@ def fetch_bist_fundamentals():
     if halka_aciklik_df is not None:
         halka_aciklik_df['Halka Açıklık Oranı (%)'] = pd.to_numeric(halka_aciklik_df['Halka Açıklık Oranı (%)'], errors='coerce')
         target_df = target_df.merge(halka_aciklik_df, on='Kod', how='left')
-        # Rename for consistency with app.py if needed, app.py uses 'Halka Açıklık (%)'
         target_df = target_df.rename(columns={'Halka Açıklık Oranı (%)': 'Halka Açıklık (%)'})
+
+    # Merge Yabancı Payı from Table 4
+    if yabanci_df is not None:
+        target_df = target_df.merge(yabanci_df, on='Kod', how='left')
 
     # Sadece kapanış fiyatı olmayan hisseleri çıkart (işlem görmeyen/tahtası kapalı)
     target_df = target_df.dropna(subset=['Kapanış (TL)'])
