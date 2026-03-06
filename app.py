@@ -381,39 +381,55 @@ if st.session_state.raw_data is not None:
         "Takas (90G Değişim %)": st.column_config.NumberColumn("Takas (90G)", width="small")
     }
     
-    # Styling the dataframe
+    # Styling the dataframe safely
+    styled_df = df_display.style
+    
+    # Define styling rules
+    style_rules = [
+        (color_potential, ['Potansiyel Getiri (%)']),
+        (color_rsi, ['RSI (14)']),
+        (color_ma200, ['MA200 Uzaklık (%)']),
+        (color_graham, ['Graham Skoru']),
+        (color_halka_aciklik, ['Halka Açıklık (%)']),
+        (color_takas_change, ['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)'])
+    ]
+    
+    for func, cols in style_rules:
+        present_cols = [c for c in cols if c in df_display.columns]
+        if present_cols:
+            styled_df = styled_df.map(func, subset=present_cols)
+            
+    format_dict = {
+        "Kapanış (TL)": "₺{:.2f}",
+        "Hedef Fiyat (F/K)": "₺{:.2f}",
+        "Hedef Fiyat (PD/DD)": "₺{:.2f}",
+        "Hedef Fiyat (ROE)": "₺{:.2f}",
+        "Hedef Fiyat (BIST Ort.)": "₺{:.2f}",
+        "Hedef Fiyat (Sektör PD/DD)": "₺{:.2f}",
+        "Nihai Hedef Fiyat": "₺{:.2f}",
+        "Graham Sayısı": "₺{:.2f}",
+        "Potansiyel Getiri (%)": "{:.2f}%",
+        "MA200 Uzaklık (%)": "{:.2f}%",
+        "MA50": "₺{:.2f}",
+        "MA150": "₺{:.2f}",
+        "52 Haftalık Zirve": "₺{:.2f}",
+        "52 Haftalık Dip": "₺{:.2f}",
+        "RSI (14)": "{:.2f}",
+        "F/K": "{:.2f}",
+        "PD/DD": "{:.2f}",
+        "Halka Açıklık (%)": "{:.2f}%",
+        "Yabancı Payı (%)": "{:.2f}%",
+        "Takas (7G Değişim %)": "{:+.2f}%",
+        "Takas (30G Değişim %)": "{:+.2f}%",
+        "Takas (90G Değişim %)": "{:+.2f}%"
+    }
+    
+    # Apply format only to columns that exist in df_display
+    present_formats = {k: v for k, v in format_dict.items() if k in df_display.columns}
+    styled_df = styled_df.format(present_formats)
+
     st.dataframe(
-        df_display.style
-        .map(color_potential, subset=['Potansiyel Getiri (%)'])
-        .map(color_rsi, subset=['RSI (14)'])
-        .map(color_ma200, subset=['MA200 Uzaklık (%)'])
-        .map(color_graham, subset=['Graham Skoru'])
-        .map(color_halka_aciklik, subset=['Halka Açıklık (%)'])
-        .map(color_takas_change, subset=['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)'])
-        .format({
-            "Kapanış (TL)": "₺{:.2f}",
-            "Hedef Fiyat (F/K)": "₺{:.2f}",
-            "Hedef Fiyat (PD/DD)": "₺{:.2f}",
-            "Hedef Fiyat (ROE)": "₺{:.2f}",
-            "Hedef Fiyat (BIST Ort.)": "₺{:.2f}",
-            "Hedef Fiyat (Sektör PD/DD)": "₺{:.2f}",
-            "Nihai Hedef Fiyat": "₺{:.2f}",
-            "Graham Sayısı": "₺{:.2f}",
-            "Potansiyel Getiri (%)": "{:.2f}%",
-            "MA200 Uzaklık (%)": "{:.2f}%",
-            "MA50": "₺{:.2f}",
-            "MA150": "₺{:.2f}",
-            "52 Haftalık Zirve": "₺{:.2f}",
-            "52 Haftalık Dip": "₺{:.2f}",
-            "RSI (14)": "{:.2f}",
-            "F/K": "{:.2f}",
-            "PD/DD": "{:.2f}",
-            "Halka Açıklık (%)": "{:.2f}%",
-            "Yabancı Payı (%)": "{:.2f}%",
-            "Takas (7G Değişim %)": "{:+.2f}%",
-            "Takas (30G Değişim %)": "{:+.2f}%",
-            "Takas (90G Değişim %)": "{:+.2f}%"
-        }),
+        styled_df,
         use_container_width=True,
         height=600,
         column_config=column_widths
