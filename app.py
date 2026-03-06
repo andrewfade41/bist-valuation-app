@@ -139,6 +139,17 @@ if st.session_state.raw_data is not None:
         show_minervini = st.checkbox("🎯 Minervini Trend Filtresi", value=False, help="Minervini trend kriterlerine uyan, yükseliş eğilimindeki hisseleri süzer.")
         hide_no_fk = st.checkbox("F/K'sı Olmayanları Gizle", value=False, help="F/K değeri bulunmayan (zarar eden veya verisi eksik) hisseleri tablodan çıkarır.")
         
+    with st.expander("📈 Gelişmiş Takas Filtreleri"):
+        tc1, tc2, tc3, tc4 = st.columns(4)
+        with tc1:
+            min_yabanci = st.number_input("Min. Yabancı Payı (%)", value=0.0)
+        with tc2:
+            min_7g = st.number_input("Min. 7G Değişim (%)", value=-10.0, step=0.1)
+        with tc3:
+            min_30g = st.number_input("Min. 30G Değişim (%)", value=-20.0, step=0.1)
+        with tc4:
+            min_90g = st.number_input("Min. 90G Değişim (%)", value=-30.0, step=0.1)
+        
     # Filter based on potential return, but include NaNs if min_potential is 0 or less
     if min_potential <= 0:
         df_filtered = df_calc.copy()
@@ -171,6 +182,16 @@ if st.session_state.raw_data is not None:
             df_filtered = df_filtered[df_filtered['Kod'].isin(wl_tickers)]
         else:
             st.warning(f"'{selected_filter}' listesinde uygun hisse bulunamadı. Lütfen sol menüden listeye hisse ekleyin.")
+            
+    # Takas Filtering
+    if 'Yabancı Payı (%)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Yabancı Payı (%)'] >= min_yabanci]
+    if 'Takas (7G Değişim %)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Takas (7G Değişim %)'] >= min_7g]
+    if 'Takas (30G Değişim %)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Takas (30G Değişim %)'] >= min_30g]
+    if 'Takas (90G Değişim %)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Takas (90G Değişim %)'] >= min_90g]
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
@@ -265,7 +286,7 @@ if st.session_state.raw_data is not None:
     # Select columns to display
     display_cols = [
         'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 'Halka Açıklık (%)',
-        'Yabancı Payı (%)', 'Takas Değişimi (bp)',
+        'Yabancı Payı (%)', 'Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)',
         'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
         'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
         'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
@@ -322,11 +343,11 @@ if st.session_state.raw_data is not None:
         if val > 80: return 'color: red; font-weight: bold;' # Çok yüksek
         return ''
         
-    def color_takas_degisimi(val):
+    def color_takas_change(val):
         if pd.isna(val): return ''
-        if val > 50: return 'color: white; background-color: darkgreen; font-weight: bold;'
+        if val > 1.0: return 'color: white; background-color: darkgreen; font-weight: bold;'
         if val > 0: return 'color: green; font-weight: bold;'
-        if val < -50: return 'color: white; background-color: darkred; font-weight: bold;'
+        if val < -1.0: return 'color: white; background-color: darkred; font-weight: bold;'
         if val < 0: return 'color: red; font-weight: bold;'
         return ''
         
@@ -355,7 +376,9 @@ if st.session_state.raw_data is not None:
         "Potansiyel Getiri (%)": st.column_config.NumberColumn("Potansiyel", width="small"),
         "Halka Açıklık (%)": st.column_config.NumberColumn("Halka Açıklık (%)", width="small"),
         "Yabancı Payı (%)": st.column_config.NumberColumn("Yabancı Payı (%)", width="small"),
-        "Takas Değişimi (bp)": st.column_config.NumberColumn("Takas Değişimi (bp)", width="small")
+        "Takas (7G Değişim %)": st.column_config.NumberColumn("Takas (7G)", width="small"),
+        "Takas (30G Değişim %)": st.column_config.NumberColumn("Takas (30G)", width="small"),
+        "Takas (90G Değişim %)": st.column_config.NumberColumn("Takas (90G)", width="small")
     }
     
     # Styling the dataframe
@@ -366,7 +389,7 @@ if st.session_state.raw_data is not None:
         .map(color_ma200, subset=['MA200 Uzaklık (%)'])
         .map(color_graham, subset=['Graham Skoru'])
         .map(color_halka_aciklik, subset=['Halka Açıklık (%)'])
-        .map(color_takas_degisimi, subset=['Takas Değişimi (bp)'])
+        .map(color_takas_change, subset=['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)'])
         .format({
             "Kapanış (TL)": "₺{:.2f}",
             "Hedef Fiyat (F/K)": "₺{:.2f}",
@@ -387,7 +410,9 @@ if st.session_state.raw_data is not None:
             "PD/DD": "{:.2f}",
             "Halka Açıklık (%)": "{:.2f}%",
             "Yabancı Payı (%)": "{:.2f}%",
-            "Takas Değişimi (bp)": "{:.0f}"
+            "Takas (7G Değişim %)": "{:+.2f}%",
+            "Takas (30G Değişim %)": "{:+.2f}%",
+            "Takas (90G Değişim %)": "{:+.2f}%"
         }),
         use_container_width=True,
         height=600,

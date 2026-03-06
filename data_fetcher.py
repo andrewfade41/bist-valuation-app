@@ -20,26 +20,14 @@ def fetch_bist_fundamentals():
 
     # We need the table containing F/K, PD/DD, and Son Dönem. (Table 6)
     # And Table 2 for Halka Açıklık Oranı (%)
-    # And Table 4 for Yabancı Oranları
     target_df = None
     halka_aciklik_df = None
-    yabanci_df = None
     
     for df in dfs:
-        # Table 6: Fundamentals
         if set(['Kod', 'F/K', 'PD/DD', 'Son Dönem']).issubset(df.columns):
             target_df = df
-        # Table 2: Free Float
         if 'Halka Açıklık Oranı (%)' in df.columns and 'Kod' in df.columns:
             halka_aciklik_df = df[['Kod', 'Halka Açıklık Oranı (%)']].copy()
-        # Table 4: Foreign Ratios
-        if 'Kod' in df.columns and 'Değişim (Baz Puan)' in df.columns:
-            # Table 4 structure: [Kod, Kapanış, StartDate%, EndDate%, ChangeBps, Effect]
-            # EndDate% is index 3, ChangeBps is index 4
-            cols = df.columns.tolist()
-            yabanci_df = df[['Kod']].copy()
-            yabanci_df['Yabancı Payı (%)'] = pd.to_numeric(df.iloc[:, 3], errors='coerce')
-            yabanci_df['Takas Değişimi (bp)'] = pd.to_numeric(df.iloc[:, 4], errors='coerce')
             
     if target_df is None:
         print("Could not find the target table on the page.")
@@ -58,15 +46,41 @@ def fetch_bist_fundamentals():
     if halka_aciklik_df is not None:
         halka_aciklik_df['Halka Açıklık Oranı (%)'] = pd.to_numeric(halka_aciklik_df['Halka Açıklık Oranı (%)'], errors='coerce')
         target_df = target_df.merge(halka_aciklik_df, on='Kod', how='left')
+        # Rename for consistency with app.py if needed, app.py uses 'Halka Açıklık (%)'
         target_df = target_df.rename(columns={'Halka Açıklık Oranı (%)': 'Halka Açıklık (%)'})
-
-    # Merge Yabancı Payı from Table 4
-    if yabanci_df is not None:
-        target_df = target_df.merge(yabanci_df, on='Kod', how='left')
 
     # Sadece kapanış fiyatı olmayan hisseleri çıkart (işlem görmeyen/tahtası kapalı)
     target_df = target_df.dropna(subset=['Kapanış (TL)'])
+    target_df['Kod'] = target_df['Kod'].str.strip()
+    target_df = target_df.drop_duplicates(subset=['Kod'])
     
+    # Merge Advanced Takas Data (7, 30, 90 Days)
+    print("Fetching advanced Takas data (7, 30, 90 days)...")
+    try:
+        # Current Takas & 7 Days Change
+        df_7g = fetch_takas_data(days_back=7)
+        if not df_7g.empty:
+            df_7g = df_7g.drop_duplicates(subset=['Kod'])
+            df_7g = df_7g.rename(columns={'YAB_ORAN_END': 'Yabancı Payı (%)', 'DEGISIM': 'Takas (7G Değişim %)'})
+            target_df = target_df.merge(df_7g[['Kod', 'Yabancı Payı (%)', 'Takas (7G Değişim %)']], on='Kod', how='left')
+        
+        # 30 Days Change
+        df_30g = fetch_takas_data(days_back=30)
+        if not df_30g.empty:
+            df_30g = df_30g.drop_duplicates(subset=['Kod'])
+            df_30g = df_30g.rename(columns={'DEGISIM': 'Takas (30G Değişim %)'})
+            target_df = target_df.merge(df_30g[['Kod', 'Takas (30G Değişim %)']], on='Kod', how='left')
+            
+        # 90 Days Change
+        df_90g = fetch_takas_data(days_back=90)
+        if not df_90g.empty:
+            df_90g = df_90g.drop_duplicates(subset=['Kod'])
+            df_90g = df_90g.rename(columns={'DEGISIM': 'Takas (90G Değişim %)'})
+            target_df = target_df.merge(df_90g[['Kod', 'Takas (90G Değişim %)']], on='Kod', how='left')
+            
+    except Exception as e:
+        print(f"Error merging advanced Takas data: {e}")
+
     # Merge TV Data
     print("Fetching live technical data from TradingView...")
     tv_df = fetch_tv_data()
@@ -75,6 +89,45 @@ def fetch_bist_fundamentals():
         target_df['Bilanço Açıklanma Tarihi'] = target_df['Bilanço Açıklanma Tarihi'].fillna('Belirsiz')
     
     return target_df
+
+def fetch_takas_data(days_back=7):
+    from datetime import timedelta
+    import requests
+    
+    url = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
+    
+    headers = {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    bitis_dt = datetime.now() - timedelta(days=1)
+    bitis = bitis_dt.strftime("%d-%m-%Y")
+    baslangic = (bitis_dt - timedelta(days=days_back)).strftime("%d-%m-%Y")
+    
+    payload = {
+        "baslangicTarih": baslangic,
+        "bitisTarihi": bitis,
+        "sektor": None,
+        "endeks": None,
+        "hisse": None
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        if response.status_code == 200:
+            data = response.json().get('d', [])
+            if data:
+                df = pd.DataFrame(data)
+                df = df.rename(columns={'HISSE_KODU': 'Kod'})
+                df['Kod'] = df['Kod'].str.strip()
+                return df[['Kod', 'YAB_ORAN_END', 'DEGISIM']]
+    except Exception as e:
+        print(f"Error fetching Takas ({days_back} days): {e}")
+        
+    return pd.DataFrame()
 
 def fetch_tv_data():
     url = "https://scanner.tradingview.com/turkey/scan"
