@@ -41,11 +41,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          if [ -f is_yatirim_periods.json ]; then
-            git add is_yatirim_periods.json
-            git commit -m "Auto update: Bilanço dönemleri" || echo "No changes"
-            git pull --rebase origin main
-            git push
+          # Add specific files that are expected to change
+          git add is_yatirim_periods.json earnings_dates.json sectors.json 2>/dev/null || true
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto update: BIST data files [skip ci]"
+            
+            # Use a more robust sync pattern: fetch, then rebase
+            git fetch origin main
+            git rebase origin/main
+            git push origin main
           else
-            echo "is_yatirim_periods.json not found, skipping commit"
+            echo "No changes detected in data files, skipping commit."
           fi
