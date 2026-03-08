@@ -2,7 +2,7 @@ import pandas as pd
 import ssl
 import json
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def fetch_bist_fundamentals():
     # Bypass SSL verification if needed for MacOS python environments
@@ -57,27 +57,44 @@ def fetch_bist_fundamentals():
     # Merge Advanced Takas Data (7, 30, 90 Days)
     print("Fetching advanced Takas data (7, 30, 90 days)...")
     try:
-        # Current Takas & 7 Days Change
-        df_7g = fetch_takas_data(days_back=7)
-        if not df_7g.empty:
-            df_7g = df_7g.drop_duplicates(subset=['Kod'])
-            df_7g = df_7g.rename(columns={'YAB_ORAN_END': 'Yabancı Payı (%)', 'DEGISIM': 'Takas (7G Değişim %)'})
-            target_df = target_df.merge(df_7g[['Kod', 'Yabancı Payı (%)', 'Takas (7G Değişim %)']], on='Kod', how='left')
+        # Find the latest available date for Takas data (check last 5 days)
+        latest_takas_df = pd.DataFrame()
+        latest_date_str = ""
         
-        # 30 Days Change
-        df_30g = fetch_takas_data(days_back=30)
-        if not df_30g.empty:
-            df_30g = df_30g.drop_duplicates(subset=['Kod'])
-            df_30g = df_30g.rename(columns={'DEGISIM': 'Takas (30G Değişim %)'})
-            target_df = target_df.merge(df_30g[['Kod', 'Takas (30G Değişim %)']], on='Kod', how='left')
+        for i in range(1, 6):
+            check_date = (datetime.now() - timedelta(days=i))
+            df_check = fetch_takas_data(days_back=1, bitis_date=check_date)
+            if not df_check.empty:
+                latest_takas_df = df_check
+                latest_date_str = check_date.strftime("%d-%m-%Y")
+                print(f"Using latest Takas date: {latest_date_str}")
+                break
+        
+        if not latest_takas_df.empty:
+            # Current Takas & 7 Days Change
+            # We already have the 'latest' data, but we need the change from 7 days before THAT date
+            bitis_dt = datetime.strptime(latest_date_str, "%d-%m-%Y")
             
-        # 90 Days Change
-        df_90g = fetch_takas_data(days_back=90)
-        if not df_90g.empty:
-            df_90g = df_90g.drop_duplicates(subset=['Kod'])
-            df_90g = df_90g.rename(columns={'DEGISIM': 'Takas (90G Değişim %)'})
-            target_df = target_df.merge(df_90g[['Kod', 'Takas (90G Değişim %)']], on='Kod', how='left')
+            df_7g = fetch_takas_data(days_back=7, bitis_date=bitis_dt)
+            if not df_7g.empty:
+                df_7g = df_7g.drop_duplicates(subset=['Kod'])
+                df_7g = df_7g.rename(columns={'YAB_ORAN_END': 'Yabancı Payı (%)', 'DEGISIM': 'Takas (7G Değişim %)'})
+                target_df = target_df.merge(df_7g[['Kod', 'Yabancı Payı (%)', 'Takas (7G Değişim %)']], on='Kod', how='left')
             
+            # 30 Days Change
+            df_30g = fetch_takas_data(days_back=30, bitis_date=bitis_dt)
+            if not df_30g.empty:
+                df_30g = df_30g.drop_duplicates(subset=['Kod'])
+                df_30g = df_30g.rename(columns={'DEGISIM': 'Takas (30G Değişim %)'})
+                target_df = target_df.merge(df_30g[['Kod', 'Takas (30G Değişim %)']], on='Kod', how='left')
+                
+            # 90 Days Change
+            df_90g = fetch_takas_data(days_back=90, bitis_date=bitis_dt)
+            if not df_90g.empty:
+                df_90g = df_90g.drop_duplicates(subset=['Kod'])
+                df_90g = df_90g.rename(columns={'DEGISIM': 'Takas (90G Değişim %)'})
+                target_df = target_df.merge(df_90g[['Kod', 'Takas (90G Değişim %)']], on='Kod', how='left')
+                
     except Exception as e:
         print(f"Error merging advanced Takas data: {e}")
 
@@ -90,8 +107,7 @@ def fetch_bist_fundamentals():
     
     return target_df
 
-def fetch_takas_data(days_back=7):
-    from datetime import timedelta
+def fetch_takas_data(days_back=7, bitis_date=None):
     import requests
     
     url = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
@@ -103,7 +119,11 @@ def fetch_takas_data(days_back=7):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    bitis_dt = datetime.now() - timedelta(days=1)
+    if bitis_date is None:
+        bitis_dt = datetime.now() - timedelta(days=1)
+    else:
+        bitis_dt = bitis_date
+        
     bitis = bitis_dt.strftime("%d-%m-%Y")
     baslangic = (bitis_dt - timedelta(days=days_back)).strftime("%d-%m-%Y")
     
@@ -125,8 +145,8 @@ def fetch_takas_data(days_back=7):
                 df['Kod'] = df['Kod'].str.strip()
                 return df[['Kod', 'YAB_ORAN_END', 'DEGISIM']]
     except Exception as e:
-        print(f"Error fetching Takas ({days_back} days): {e}")
-        
+        print(f"Error fetching Takas ({days_back} days) for {bitis}: {e}")
+    
     return pd.DataFrame()
 
 def fetch_tv_data():
