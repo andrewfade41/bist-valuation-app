@@ -4,6 +4,14 @@ import json
 import urllib.request
 from datetime import datetime, timedelta
 
+def get_nearest_business_day(dt):
+    # If Saturday (5) or Sunday (6), shift to Friday
+    if dt.weekday() == 5:
+        return dt - timedelta(days=1)
+    if dt.weekday() == 6:
+        return dt - timedelta(days=2)
+    return dt
+
 def fetch_bist_fundamentals():
     # Bypass SSL verification if needed for MacOS python environments
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -124,8 +132,11 @@ def fetch_takas_data(days_back=7, bitis_date=None):
     else:
         bitis_dt = bitis_date
         
+    bitis_dt = get_nearest_business_day(bitis_dt)
     bitis = bitis_dt.strftime("%d-%m-%Y")
-    baslangic = (bitis_dt - timedelta(days=days_back)).strftime("%d-%m-%Y")
+    
+    baslangic_dt = get_nearest_business_day(bitis_dt - timedelta(days=days_back))
+    baslangic = baslangic_dt.strftime("%d-%m-%Y")
     
     payload = {
         "baslangicTarih": baslangic,
