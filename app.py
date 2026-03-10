@@ -36,10 +36,10 @@ def render_lightweight_chart(ticker, data_json, container_id):
     (function() {{
         const container = document.getElementById('{container_id}');
         const chart = LightweightCharts.createChart(container, {{
-            width: container.offsetWidth,
+            width: container.offsetWidth || 300,
             height: 400,
             layout: {{
-                backgroundColor: '#131722',
+                background: {{ type: 'solid', color: '#131722' }},
                 textColor: '#d1d4dc',
             }},
             grid: {{
@@ -58,6 +58,9 @@ def render_lightweight_chart(ticker, data_json, container_id):
 
         const data = {data_json};
         candleSeries.setData(data);
+        
+        // Ensure the chart fits the content
+        chart.timeScale().fitContent();
         
         // Handle window resize
         window.addEventListener('resize', () => {{
