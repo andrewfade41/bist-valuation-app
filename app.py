@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
+import yfinance as yf
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
@@ -24,20 +27,44 @@ def load_env_watchlists():
             watchlists[str(i)] = {"name": name, "tickers": tickers}
     return watchlists
 
-def get_tradingview_widget_html(ticker, container_id):
-    """Generates the HTML for a TradingView Widget using the iframe-based embed for better stability."""
-    # Use the official widget-embed URL which is self-contained and more robust in Streamlit iframes
-    tv_url = f"https://s.tradingview.com/widgetembed/?symbol=BIST:{ticker}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&theme=dark&style=1&timezone=Europe/Istanbul&locale=tr"
+def render_lightweight_chart(ticker, data_json, container_id):
+    """Generates the HTML for a TradingView Lightweight Chart using provided OHLC data."""
     return f"""
-    <iframe 
-        src="{tv_url}" 
-        width="100%" 
-        height="400" 
-        frameborder="0" 
-        allowtransparency="true" 
-        scrolling="no" 
-        allowfullscreen>
-    </iframe>
+    <div id="{container_id}" style="height:400px;width:100%;background-color:#131722;"></div>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script type="text/javascript">
+    (function() {{
+        const container = document.getElementById('{container_id}');
+        const chart = LightweightCharts.createChart(container, {{
+            width: container.offsetWidth,
+            height: 400,
+            layout: {{
+                backgroundColor: '#131722',
+                textColor: '#d1d4dc',
+            }},
+            grid: {{
+                vertLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
+                horzLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
+            }},
+            crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
+            priceScale: {{ borderColor: 'rgba(197, 203, 206, 0.8)' }},
+            timeScale: {{ borderColor: 'rgba(197, 203, 206, 0.8)' }},
+        }});
+
+        const candleSeries = chart.addCandlestickSeries({{
+            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        }});
+
+        const data = {data_json};
+        candleSeries.setData(data);
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {{
+            chart.applyOptions({{ width: container.offsetWidth }});
+        }});
+    }})();
+    </script>
     """
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
@@ -462,16 +489,49 @@ if st.session_state.raw_data is not None:
         if not grid_tickers:
             st.info("Gösterilecek hisse bulunamadı. Lütfen filtreleri kontrol edin.")
         else:
-            # Create a 4-column grid
-            rows = (len(grid_tickers) + 3) // 4
-            for r in range(rows):
-                cols = st.columns(4)
-                for c in range(4):
-                    idx = r * 4 + c
-                    if idx < len(grid_tickers):
-                        ticker = grid_tickers[idx]
-                        with cols[c]:
-                            st.write(f"**{ticker}**")
-                            tv_html = get_tradingview_widget_html(ticker, f"tv_chart_{ticker}")
-                            components.html(tv_html, height=410)
+            with st.spinner("Grafik verileri indiriliyor (yfinance)..."):
+                # Batch download data for the 12 tickers
+                yf_symbols = [f"{t}.IS" for t in grid_tickers]
+                # Download 6 months of daily data
+                hist_df = yf.download(yf_symbols, period="6mo", interval="1d", group_by='ticker', progress=False)
+                
+                # Create a 4-column grid
+                rows = (len(grid_tickers) + 3) // 4
+                for r in range(rows):
+                    cols = st.columns(4)
+                    for c in range(4):
+                        idx = r * 4 + c
+                        if idx < len(grid_tickers):
+                            ticker = grid_tickers[idx]
+                            t_yf = f"{ticker}.IS"
+                            
+                            with cols[c]:
+                                st.write(f"**{ticker}**")
+                                if t_yf in hist_df.columns.get_level_values(0):
+                                    ticker_data = hist_df[t_yf].dropna()
+                                    if not ticker_data.empty:
+                                        # Convert to Lightweight Charts format
+                                        chart_points = []
+                                        for date, row in ticker_data.iterrows():
+                                            chart_points.append({
+                                                "time": date.strftime('%Y-%m-%d'),
+                                                "open": float(row['Open']),
+                                                "high": float(row['High']),
+                                                "low": float(row['Low']),
+                                                "close": float(row['Close'])
+                                            })
+                                        
+                                        tv_html = render_lightweight_chart(ticker, json.dumps(chart_points), f"custom_chart_{ticker}")
+                                        components.html(tv_html, height=410)
+                                    else:
+                                        st.caption(f"{ticker} için güncel veri bulunamadı.")
+                                else:
+                                    # Handle single symbol case if yf.download format differs
+                                    if len(grid_tickers) == 1:
+                                        ticker_data = hist_df.dropna()
+                                        chart_points = [{"time": d.strftime('%Y-%m-%d'), "open": float(r['Open']), "high": float(r['High']), "low": float(r['Low']), "close": float(r['Close'])} for d, r in ticker_data.iterrows()]
+                                        tv_html = render_lightweight_chart(ticker, json.dumps(chart_points), f"custom_chart_{ticker}")
+                                        components.html(tv_html, height=410)
+                                    else:
+                                        st.caption(f"{ticker} verisi çekilemedi.")
     
