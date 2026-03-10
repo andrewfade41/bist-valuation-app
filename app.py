@@ -25,27 +25,19 @@ def load_env_watchlists():
     return watchlists
 
 def get_tradingview_widget_html(ticker, container_id):
-    """Generates the HTML for a TradingView Advanced Real-Time Chart widget."""
+    """Generates the HTML for a TradingView Widget using the iframe-based embed for better stability."""
+    # Use the official widget-embed URL which is self-contained and more robust in Streamlit iframes
+    tv_url = f"https://s.tradingview.com/widgetembed/?symbol=BIST:{ticker}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&theme=dark&style=1&timezone=Europe/Istanbul&locale=tr"
     return f"""
-    <div id="{container_id}" style="height:400px;width:100%;"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-      "autosize": true,
-      "symbol": "BIST:{ticker}",
-      "interval": "D",
-      "timezone": "Europe/Istanbul",
-      "theme": "dark",
-      "style": "1",
-      "locale": "tr",
-      "toolbar_bg": "#f1f3f6",
-      "enable_publishing": false,
-      "hide_top_toolbar": true,
-      "hide_legend": true,
-      "save_image": false,
-      "container_id": "{container_id}"
-    }});
-    </script>
+    <iframe 
+        src="{tv_url}" 
+        width="100%" 
+        height="400" 
+        frameborder="0" 
+        allowtransparency="true" 
+        scrolling="no" 
+        allowfullscreen>
+    </iframe>
     """
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
