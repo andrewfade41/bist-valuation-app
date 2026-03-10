@@ -38,6 +38,7 @@ def render_lightweight_chart(ticker, data_json, container_id):
         const chart = LightweightCharts.createChart(container, {{
             width: container.offsetWidth || 300,
             height: 400,
+            autoSize: true,
             layout: {{
                 background: {{ type: 'solid', color: '#131722' }},
                 textColor: '#d1d4dc',
@@ -510,9 +511,28 @@ if st.session_state.raw_data is not None:
                             
                             with cols[c]:
                                 st.write(f"**{ticker}**")
-                                if t_yf in hist_df.columns.get_level_values(0):
-                                    ticker_data = hist_df[t_yf].dropna()
+                                
+                                # Data Extraction Logic
+                                ticker_data = None
+                                try:
+                                    if isinstance(hist_df.columns, pd.MultiIndex):
+                                        if t_yf in hist_df.columns.get_level_values(0):
+                                            ticker_data = hist_df[t_yf]
+                                    else:
+                                        # Single ticker case (simple DataFrame)
+                                        ticker_data = hist_df
+                                except Exception:
+                                    ticker_data = None
+
+                                if ticker_data is not None and not ticker_data.empty:
+                                    # Drop NaN rows specifically for OHLC columns
+                                    ohlc_cols = ['Open', 'High', 'Low', 'Close']
+                                    ticker_data = ticker_data[ohlc_cols].dropna()
+                                    
                                     if not ticker_data.empty:
+                                        # Sort by date just in case
+                                        ticker_data = ticker_data.sort_index()
+                                        
                                         # Convert to Lightweight Charts format
                                         chart_points = []
                                         for date, row in ticker_data.iterrows():
@@ -525,16 +545,10 @@ if st.session_state.raw_data is not None:
                                             })
                                         
                                         tv_html = render_lightweight_chart(ticker, json.dumps(chart_points), f"custom_chart_{ticker}")
+                                        st.caption(f"{len(chart_points)} veri noktası yüklendi.")
                                         components.html(tv_html, height=410)
                                     else:
-                                        st.caption(f"{ticker} için güncel veri bulunamadı.")
+                                        st.caption(f"{ticker} için son 6 ayda fiyat verisi bulunamadı.")
                                 else:
-                                    # Handle single symbol case if yf.download format differs
-                                    if len(grid_tickers) == 1:
-                                        ticker_data = hist_df.dropna()
-                                        chart_points = [{"time": d.strftime('%Y-%m-%d'), "open": float(r['Open']), "high": float(r['High']), "low": float(r['Low']), "close": float(r['Close'])} for d, r in ticker_data.iterrows()]
-                                        tv_html = render_lightweight_chart(ticker, json.dumps(chart_points), f"custom_chart_{ticker}")
-                                        components.html(tv_html, height=410)
-                                    else:
-                                        st.caption(f"{ticker} verisi çekilemedi.")
+                                    st.caption(f"{ticker} verisi çekilemedi (yfinance).")
     
