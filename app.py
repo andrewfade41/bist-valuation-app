@@ -24,6 +24,30 @@ def load_env_watchlists():
             watchlists[str(i)] = {"name": name, "tickers": tickers}
     return watchlists
 
+def get_tradingview_widget_html(ticker, container_id):
+    """Generates the HTML for a TradingView Advanced Real-Time Chart widget."""
+    return f"""
+    <div id="{container_id}" style="height:400px;width:100%;"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    new TradingView.widget({{
+      "autosize": true,
+      "symbol": "BIST:{ticker}",
+      "interval": "D",
+      "timezone": "Europe/Istanbul",
+      "theme": "dark",
+      "style": "1",
+      "locale": "tr",
+      "toolbar_bg": "#f1f3f6",
+      "enable_publishing": false,
+      "hide_top_toolbar": true,
+      "hide_legend": true,
+      "save_image": false,
+      "container_id": "{container_id}"
+    }});
+    </script>
+    """
+
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
 
 st.title("📈 Borsa İstanbul (BIST) Adil Değer & Hedef Fiyat Hesaplama")
@@ -428,9 +452,34 @@ if st.session_state.raw_data is not None:
     present_formats = {k: v for k, v in format_dict.items() if k in df_display.columns}
     styled_df = styled_df.format(present_formats)
 
-    st.dataframe(
-        styled_df,
-        use_container_width=True,
-        height=600,
-        column_config=column_widths
-    )
+    # --- Tabs for Table and Grid View ---
+    tab1, tab2 = st.tabs(["📊 Tablo Görünümü", "🖼️ Grafik Görünümü (Grid)"])
+    
+    with tab1:
+        st.dataframe(
+            styled_df,
+            use_container_width=True,
+            height=600,
+            column_config=column_widths
+        )
+        
+    with tab2:
+        st.markdown(f"### 📈 Filtrelenmiş İlk {min(12, len(df_filtered))} Hisse Grafiği")
+        grid_tickers = df_filtered['Kod'].tolist()[:12]
+        
+        if not grid_tickers:
+            st.info("Gösterilecek hisse bulunamadı. Lütfen filtreleri kontrol edin.")
+        else:
+            # Create a 4-column grid
+            rows = (len(grid_tickers) + 3) // 4
+            for r in range(rows):
+                cols = st.columns(4)
+                for c in range(4):
+                    idx = r * 4 + c
+                    if idx < len(grid_tickers):
+                        ticker = grid_tickers[idx]
+                        with cols[c]:
+                            st.write(f"**{ticker}**")
+                            tv_html = get_tradingview_widget_html(ticker, f"tv_chart_{ticker}")
+                            components.html(tv_html, height=410)
+    
