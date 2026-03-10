@@ -30,45 +30,53 @@ def load_env_watchlists():
 def render_lightweight_chart(ticker, data_json, container_id):
     """Generates the HTML for a TradingView Lightweight Chart using provided OHLC data."""
     return f"""
-    <div id="{container_id}" style="height:400px;width:100%;background-color:#131722;"></div>
+    <div id="{container_id}" style="height:400px;width:100%;background-color:#131722;margin:0;padding:0;overflow:hidden;"></div>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script type="text/javascript">
     (function() {{
-        const container = document.getElementById('{container_id}');
-        const chart = LightweightCharts.createChart(container, {{
-            width: container.offsetWidth || 300,
-            height: 400,
-            autoSize: true,
-            layout: {{
-                background: {{ type: 'solid', color: '#131722' }},
-                textColor: '#d1d4dc',
-            }},
-            grid: {{
-                vertLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
-                horzLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
-            }},
-            crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
-            priceScale: {{ borderColor: 'rgba(197, 203, 206, 0.8)' }},
-            timeScale: {{ borderColor: 'rgba(197, 203, 206, 0.8)' }},
-        }});
+        // Give it a small delay to ensure the iframe container has dimensions
+        setTimeout(() => {{
+            const container = document.getElementById('{container_id}');
+            if (!container) return;
+            
+            const chart = LightweightCharts.createChart(container, {{
+                width: window.innerWidth,
+                height: 400,
+                layout: {{
+                    background: {{ type: 'solid', color: '#131722' }},
+                    textColor: '#d1d4dc',
+                }},
+                grid: {{
+                    vertLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
+                    horzLines: {{ color: 'rgba(42, 46, 57, 0.6)' }},
+                }},
+                crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
+                priceScale: {{ borderColor: 'rgba(197, 203, 206, 0.8)' }},
+                timeScale: {{ 
+                    borderColor: 'rgba(197, 203, 206, 0.8)',
+                    timeVisible: true,
+                    secondsVisible: false
+                }},
+            }});
 
-        const candleSeries = chart.addCandlestickSeries({{
-            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
-        }});
+            const candleSeries = chart.addCandlestickSeries({{
+                upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+                wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+            }});
 
-        const data = {data_json};
-        candleSeries.setData(data);
-        
-        // Ensure the chart fits the content
-        chart.timeScale().fitContent();
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {{
-            chart.applyOptions({{ width: container.offsetWidth }});
-        }});
+            const data = {data_json};
+            if (data && data.length > 0) {{
+                candleSeries.setData(data);
+                chart.timeScale().fitContent();
+            }}
+            
+            window.addEventListener('resize', () => {{
+                chart.applyOptions({{ width: window.innerWidth }});
+            }});
+        }}, 50);
     }})();
     </script>
+    <style>body {{ margin: 0; padding: 0; background-color: #131722; }}</style>
     """
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
