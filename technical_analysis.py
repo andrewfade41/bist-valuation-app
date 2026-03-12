@@ -5,10 +5,15 @@ import logging
 
 def calculate_rsi(series, period=14):
     delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    up = delta.clip(lower=0)
+    down = -delta.clip(upper=0)
     
-    rs = gain / loss
+    # Wilder's Smoothing using Exponential Moving Average
+    # alpha = 1 / period -> com = period - 1
+    ema_up = up.ewm(com=period - 1, adjust=False).mean()
+    ema_down = down.ewm(com=period - 1, adjust=False).mean()
+    
+    rs = ema_up / ema_down
     return 100 - (100 / (1 + rs))
 
 def find_pivots(series, order=5):

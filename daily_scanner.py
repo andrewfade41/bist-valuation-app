@@ -300,7 +300,7 @@ def main():
         try:
             # yfinance needs .IS suffix for BIST
             yf_ticker = ticker + ".IS"
-            df_hist = yf.download(yf_ticker, period='60d', interval='1d', progress=False)
+            df_hist = yf.download(yf_ticker, period='100d', interval='1d', progress=False)
             if not df_hist.empty:
                 signal = detect_bullish_divergence(df_hist)
                 if signal:
