@@ -242,9 +242,6 @@ def main():
     
     if not changed_tickers:
         print("BİLGİ: İş Yatırım'da yeni açıklanan/değişen bir bilanço dönemi bulunamadı.")
-        # Güncelleyip çık
-        save_current_dates(current_dates)
-        return
         
     print(f"BİLGİ: {len(changed_tickers)} adet hissede yeni bilanço dönemi (Son Dönem) güncellemesi tespit edildi!")
     
