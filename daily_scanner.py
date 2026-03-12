@@ -48,13 +48,16 @@ def find_changed_tickers(current_dates, previous_dates):
             })
     return changed_tickers
 
-def format_html_email(df_calc, changed_tickers):
+def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None):
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
-        <h2>BİST Son Bilanço Dönemi Güncellenen Hisseler</h2>
+    """
+    
+    if changed_tickers:
+        html += f"""
+        <h2>🔔 BİST Son Bilanço Dönemi Güncellenen Hisseler</h2>
         <p>Bugün itibarıyla {len(changed_tickers)} hissenin İş Yatırım'daki (KAP) <b>Son Bilanço Dönemi</b> değişti veya açıklandı.</p>
-        <p>Aşağıda bu hisselere ait güncel adil değer, potansiyel kâr ve teknik verileri bulabilirsiniz:</p>
         
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
           <thead style="background-color: #f2f2f2;">
@@ -73,53 +76,98 @@ def format_html_email(df_calc, changed_tickers):
             </tr>
           </thead>
           <tbody>
-    """
-    
-    # Render table rows
-    for item in changed_tickers:
-        ticker = item['Kod']
-        eski = item['Eski_Tarih']
-        yeni = item['Yeni_Tarih']
+        """
         
-        # Find data for this ticker
-        ticker_data = df_calc[df_calc['Kod'] == ticker]
-        if not ticker_data.empty:
-            row = ticker_data.iloc[0]
+        # Render table rows
+        for item in changed_tickers:
+            ticker = item['Kod']
+            eski = item['Eski_Tarih']
+            yeni = item['Yeni_Tarih']
             
-            # Formatting variables
+            # Find data for this ticker
+            ticker_data = df_calc[df_calc['Kod'] == ticker]
+            if not ticker_data.empty:
+                row = ticker_data.iloc[0]
+                
+                # Formatting variables
+                price = f"₺{row['Kapanış (TL)']:.2f}" if pd.notna(row['Kapanış (TL)']) else "-"
+                fk = f"{row['F/K']:.2f}" if pd.notna(row['F/K']) else "-"
+                pddd = f"{row['PD/DD']:.2f}" if pd.notna(row['PD/DD']) else "-"
+                
+                graham = f"₺{row['Graham Sayısı']:.2f}" if 'Graham Sayısı' in row and pd.notna(row['Graham Sayısı']) else "-"
+                
+                pot_val = row['Potansiyel Getiri (%)']
+                pot_color = "green" if pot_val and pot_val > 0 else "red"
+                pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
+                
+                rsi_val = row['RSI (14)']
+                rsi_color = "red" if rsi_val and float(rsi_val) > 70 else ("green" if rsi_val and float(rsi_val) < 30 else "black")
+                rsi_str = f"<span style='color:{rsi_color}'>{float(rsi_val):.2f}</span>" if pd.notna(rsi_val) else "-"
+                
+                ma200_val = row['MA200 Uzaklık (%)']
+                ma200_color = "green" if ma200_val and float(ma200_val) < 0 else "red"
+                ma200_str = f"<span style='color:{ma200_color}'>{float(ma200_val):.2f}%</span>" if pd.notna(ma200_val) else "-"
+                
+                html += f"""
+                <tr>
+                  <td><b>{ticker}</b></td>
+                  <td>{row['Sektör']}</td>
+                  <td><b>{yeni}</b></td>
+                  <td style="color: #888;">{eski}</td>
+                  <td>{price}</td>
+                  <td>{fk}</td>
+                  <td>{pddd}</td>
+                  <td>{graham}</td>
+                  <td>{pot_str}</td>
+                  <td>{rsi_str}</td>
+                  <td>{ma200_str}</td>
+                </tr>
+                """
+        html += "</tbody></table><br>"
+
+    if rsi_alerts_df is not None and not rsi_alerts_df.empty:
+        html += f"""
+        <h2>📉 RSI < 30 (Aşırı Satım) Bölgesindeki Hisseler</h2>
+        <p>Aşağıdaki hisseler RSI(14) değeri 30'un altında olan ve potansiyel tepki yükselişi gerçekleştirebilecek hisselerdir:</p>
+        
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
+          <thead style="background-color: #f2f2f2;">
+            <tr>
+              <th>Kod</th>
+              <th>Sektör</th>
+              <th>Fiyat (TL)</th>
+              <th>RSI (14)</th>
+              <th>Potansiyel Getiri</th>
+              <th>PD/DD</th>
+              <th>F/K</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for _, row in rsi_alerts_df.iterrows():
             price = f"₺{row['Kapanış (TL)']:.2f}" if pd.notna(row['Kapanış (TL)']) else "-"
-            fk = f"{row['F/K']:.2f}" if pd.notna(row['F/K']) else "-"
-            pddd = f"{row['PD/DD']:.2f}" if pd.notna(row['PD/DD']) else "-"
-            
-            graham = f"₺{row['Graham Sayısı']:.2f}" if 'Graham Sayısı' in row and pd.notna(row['Graham Sayısı']) else "-"
+            rsi_val = row['RSI (14)']
+            rsi_str = f"<b><span style='color:green'>{rsi_val:.2f}</span></b>"
             
             pot_val = row['Potansiyel Getiri (%)']
             pot_color = "green" if pot_val and pot_val > 0 else "red"
             pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
             
-            rsi_val = row['RSI (14)']
-            rsi_color = "red" if rsi_val and float(rsi_val) > 70 else ("green" if rsi_val and float(rsi_val) < 30 else "black")
-            rsi_str = f"<span style='color:{rsi_color}'>{float(rsi_val):.2f}</span>" if pd.notna(rsi_val) else "-"
-            
-            ma200_val = row['MA200 Uzaklık (%)']
-            ma200_color = "green" if ma200_val and float(ma200_val) < 0 else "red"
-            ma200_str = f"<span style='color:{ma200_color}'>{float(ma200_val):.2f}%</span>" if pd.notna(ma200_val) else "-"
+            pddd = f"{row['PD/DD']:.2f}" if pd.notna(row['PD/DD']) else "-"
+            fk = f"{row['F/K']:.2f}" if pd.notna(row['F/K']) else "-"
             
             html += f"""
             <tr>
-              <td><b>{ticker}</b></td>
+              <td><b>{row['Kod']}</b></td>
               <td>{row['Sektör']}</td>
-              <td><b>{yeni}</b></td>
-              <td style="color: #888;">{eski}</td>
               <td>{price}</td>
-              <td>{fk}</td>
-              <td>{pddd}</td>
-              <td>{graham}</td>
-              <td>{pot_str}</td>
               <td>{rsi_str}</td>
-              <td>{ma200_str}</td>
+              <td>{pot_str}</td>
+              <td>{pddd}</td>
+              <td>{fk}</td>
             </tr>
             """
+        html += "</tbody></table><br>"
     
     html += """
           </tbody>
@@ -203,11 +251,22 @@ def main():
     # 3. Calculate fair values to enrich email for changed tickers
     df_calc, _ = calculate_fair_values(df_raw)
     
+    # 3.1. Identify RSI < 30 tickers
+    rsi_alerts_df = df_calc[df_calc['RSI (14)'] < 30].sort_values(by='Potansiyel Getiri (%)', ascending=False)
+    
+    if not changed_tickers and rsi_alerts_df.empty:
+        print("BİLGİ: Ne yeni bilanço ne de RSI alarmi bulundu.")
+        save_current_dates(current_dates)
+        return
+        
+    print(f"BİLGİ: {len(changed_tickers)} bilanço güncellemesi ve {len(rsi_alerts_df)} RSI alarmi bulundu.")
+    
     # 4. Generate HTML Email Report
-    html_report = format_html_email(df_calc, changed_tickers)
+    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df)
     
     date_str = datetime.now().strftime("%d.%m.%Y")
-    send_email(f"🔔 BİST Bilanço Dönemi Güncellemesi - {date_str}", html_report)
+    subject = f"🔔 BİST Günlük Tarama & RSI Alarmları - {date_str}"
+    send_email(subject, html_report)
     
     # 5. Save the snapshot for tomorrow's comparison
     save_current_dates(current_dates)
