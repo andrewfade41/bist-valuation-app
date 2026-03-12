@@ -98,3 +98,76 @@ def detect_bullish_divergence(df, order=5):
                         'date': df_idx.loc[recent_trough_idx, 'Date'].strftime('%d.%m.%Y') if 'Date' in df_idx.columns else ''
                     }
     return None
+
+def detect_bearish_divergence(df, order=5):
+    """
+    Detects Regular Bearish Divergence:
+    - Price: Higher High
+    - RSI: Lower High
+    """
+    if len(df) < 30:
+        return None
+    
+    # Create a copy to avoid modification issues
+    df = df.copy()
+    
+    # Flatten multi-index columns if they exist
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+
+    # Calculate RSI if not present
+    if 'RSI' not in df.columns:
+        close_data = df['Close']
+        df['RSI'] = calculate_rsi(close_data)
+        
+    df = df.dropna(subset=['RSI'])
+    # Reset index to use integer locations for pivot logic
+    df_idx = df.reset_index()
+    
+    # Ensure we use the correct column names
+    high_data = df_idx['High']
+    rsi_data = df_idx['RSI']
+    
+    # Find peaks in Price (High) and RSI
+    price_peaks, _ = find_pivots(high_data, order=order)
+    rsi_peaks, _ = find_pivots(rsi_data, order=order)
+    
+    if len(price_peaks) < 2 or len(rsi_peaks) < 2:
+        return None
+        
+    # Check most recent peak
+    recent_peak_idx = price_peaks[-1]
+    
+    # Signal should be fresh (close to the end of data)
+    if (len(df_idx) - 1 - recent_peak_idx) > order + 2:
+        return None
+        
+    prev_peak_idx = price_peaks[-2]
+    
+    current_price_high = high_data.iloc[recent_peak_idx]
+    prev_price_high = high_data.iloc[prev_peak_idx]
+    
+    # Condition 1: Higher High in Price
+    if current_price_high > prev_price_high:
+        # Find corresponding RSI peaks
+        curr_rsi_peak_idx = min(rsi_peaks, key=lambda x: abs(x - recent_peak_idx))
+        prev_rsi_peak_idx = min(rsi_peaks, key=lambda x: abs(x - prev_peak_idx))
+        
+        # Ensure they are reasonably aligned (within 3 bars)
+        if abs(curr_rsi_peak_idx - recent_peak_idx) <= 3 and abs(prev_rsi_peak_idx - prev_peak_idx) <= 3:
+            current_rsi = rsi_data.iloc[curr_rsi_peak_idx]
+            prev_rsi = rsi_data.iloc[prev_rsi_peak_idx]
+            
+            # Condition 2: Lower High in RSI
+            if current_rsi < prev_rsi:
+                # Optional: At least one point was in overbought territory or close to it
+                if prev_rsi > 65 or current_rsi > 65:
+                    return {
+                        'type': 'Negatif Uyumsuzluk',
+                        'current_price': float(current_price_high),
+                        'prev_price': float(prev_price_high),
+                        'current_rsi': float(current_rsi),
+                        'prev_rsi': float(prev_rsi),
+                        'date': df_idx.loc[recent_peak_idx, 'Date'].strftime('%d.%m.%Y') if 'Date' in df_idx.columns else ''
+                    }
+    return None
