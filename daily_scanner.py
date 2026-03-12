@@ -56,6 +56,19 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
       <body style="font-family: Arial, sans-serif; color: #333;">
     """
     
+    # --- SORTING LOGIC ---
+    if rsi_alerts_df is not None and not rsi_alerts_df.empty:
+        rsi_alerts_df = rsi_alerts_df.sort_values(by='RSI (14)', ascending=True)
+        
+    if divergence_signals:
+        # Sort by date (dd.mm.yyyy) newest first
+        divergence_signals.sort(key=lambda x: datetime.strptime(x['date'], '%d.%m.%Y'), reverse=True)
+        
+    if bearish_signals:
+        # Sort by date (dd.mm.yyyy) newest first
+        bearish_signals.sort(key=lambda x: datetime.strptime(x['date'], '%d.%m.%Y'), reverse=True)
+    # ---------------------
+    
     if changed_tickers:
         html += f"""
         <h2>🔔 BİST Son Bilanço Dönemi Güncellenen Hisseler</h2>
