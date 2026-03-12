@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from fetch_earnings import fetch_earnings_dates
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
-from technical_analysis import detect_bullish_divergence
+from technical_analysis import detect_bullish_divergence, detect_bearish_divergence
 import yfinance as yf
 
 # Load environment variables
@@ -50,7 +50,7 @@ def find_changed_tickers(current_dates, previous_dates):
             })
     return changed_tickers
 
-def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None):
+def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None):
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
@@ -159,6 +159,43 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td>{signal['date']}</td>
               <td>{signal['current_price']:.2f} / {signal['prev_price']:.2f}</td>
               <td><span style="color:green">{signal['current_rsi']:.2f}</span> / {signal['prev_rsi']:.2f}</td>
+              <td>{pot_str}</td>
+            </tr>
+            """
+        html += "</tbody></table><br>"
+
+    if bearish_signals:
+        html += f"""
+        <h2>📉 Negatif Uyumsuzluk (Bearish Divergence) Tespit Edilen Hisseler</h2>
+        <p>Aşağıdaki hisselerde <b>Negatif Uyumsuzluk</b> (Price Higher High while RSI Lower High) tespit edilmiştir. Bu durum teknik olarak dönüş (düşüş) sinyali olabilir:</p>
+        
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
+          <thead style="background-color: #f2f2f2;">
+            <tr>
+              <th>Kod</th>
+              <th>Sinyal Tarihi</th>
+              <th>Fiyat (Güncel/Önceki)</th>
+              <th>RSI (Güncel/Önceki)</th>
+              <th>Potansiyel Getiri</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for signal in bearish_signals:
+            ticker = signal['Kod']
+            ticker_data = df_calc[df_calc['Kod'] == ticker]
+            pot_str = "-"
+            if not ticker_data.empty:
+                pot_val = ticker_data.iloc[0]['Potansiyel Getiri (%)']
+                pot_color = "green" if pot_val and pot_val > 0 else "red"
+                pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
+
+            html += f"""
+            <tr>
+              <td><b>{ticker}</b></td>
+              <td>{signal['date']}</td>
+              <td>{signal['current_price']:.2f} / {signal['prev_price']:.2f}</td>
+              <td><span style="color:red">{signal['current_rsi']:.2f}</span> / {signal['prev_rsi']:.2f}</td>
               <td>{pot_str}</td>
             </tr>
             """
@@ -310,15 +347,33 @@ def main():
         except Exception as e:
             print(f"HATA: {ticker} için geçmiş veri çekilemedi: {e}")
 
-    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals:
+    # 3.3. Identify Bearish Divergence
+    print("BİLGİ: Negatif uyumsuzluk taraması başlatılıyor (RSI > 55 olan hisseler)...")
+    bearish_signals = []
+    bearish_candidates = df_calc[df_calc['RSI (14)'] > 55]['Kod'].tolist()
+    
+    for ticker in bearish_candidates:
+        try:
+            yf_ticker = ticker + ".IS"
+            df_hist = yf.download(yf_ticker, period='100d', interval='1d', progress=False)
+            if not df_hist.empty:
+                signal = detect_bearish_divergence(df_hist)
+                if signal:
+                    signal['Kod'] = ticker
+                    bearish_signals.append(signal)
+                    print(f"SİNYAL: {ticker} için negatif uyumsuzluk tespit edildi!")
+        except Exception as e:
+            print(f"HATA: {ticker} için geçmiş veri çekilemedi: {e}")
+
+    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals and not bearish_signals:
         print("BİLGİ: Ne yeni bilanço, ne RSI, ne de uyumsuzluk alarmi bulundu.")
         save_current_dates(current_dates)
         return
         
-    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI ve {len(divergence_signals)} uyumsuzluk alarmi bulundu.")
+    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI, {len(divergence_signals)} pozitif ve {len(bearish_signals)} negatif uyumsuzluk bulundu.")
     
     # 4. Generate HTML Email Report
-    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals)
+    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals, bearish_signals)
     
     date_str = datetime.now().strftime("%d.%m.%Y")
     subject = f"🔔 BİST Günlük Tarama & Teknik Alarmlar - {date_str}"
