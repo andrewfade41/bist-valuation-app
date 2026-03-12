@@ -137,9 +137,12 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             <tr>
               <th>Kod</th>
               <th>Sinyal Tarihi</th>
-              <th>Fiyat (Güncel/Önceki)</th>
-              <th>RSI (Güncel/Önceki)</th>
-              <th>Potansiyel Getiri</th>
+              <th>Fiyat (G/Ö)</th>
+              <th>RSI (G/Ö)</th>
+              <th>F/K</th>
+              <th>PD/DD</th>
+              <th>MA200 %</th>
+              <th>Potansiyel</th>
             </tr>
           </thead>
           <tbody>
@@ -148,10 +151,22 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             ticker = signal['Kod']
             ticker_data = df_calc[df_calc['Kod'] == ticker]
             pot_str = "-"
+            fk_str = "-"
+            pddd_str = "-"
+            ma200_str = "-"
+            
             if not ticker_data.empty:
-                pot_val = ticker_data.iloc[0]['Potansiyel Getiri (%)']
+                row = ticker_data.iloc[0]
+                pot_val = row['Potansiyel Getiri (%)']
                 pot_color = "green" if pot_val and pot_val > 0 else "red"
                 pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
+                
+                fk_str = f"{row['F/K']:.2f}"
+                pddd_str = f"{row['PD/DD']:.2f}"
+                
+                ma200_val = row['MA200 Uzaklık (%)']
+                ma200_color = "red" if ma200_val and ma200_val > 0 else "green"
+                ma200_str = f"<span style='color:{ma200_color}'>{ma200_val:.1f}%</span>" if pd.notna(ma200_val) else "-"
 
             html += f"""
             <tr>
@@ -159,6 +174,9 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td>{signal['date']}</td>
               <td>{signal['current_price']:.2f} / {signal['prev_price']:.2f}</td>
               <td><span style="color:green">{signal['current_rsi']:.2f}</span> / {signal['prev_rsi']:.2f}</td>
+              <td>{fk_str}</td>
+              <td>{pddd_str}</td>
+              <td>{ma200_str}</td>
               <td>{pot_str}</td>
             </tr>
             """
@@ -174,9 +192,12 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             <tr>
               <th>Kod</th>
               <th>Sinyal Tarihi</th>
-              <th>Fiyat (Güncel/Önceki)</th>
-              <th>RSI (Güncel/Önceki)</th>
-              <th>Potansiyel Getiri</th>
+              <th>Fiyat (G/Ö)</th>
+              <th>RSI (G/Ö)</th>
+              <th>F/K</th>
+              <th>PD/DD</th>
+              <th>MA200 %</th>
+              <th>Potansiyel</th>
             </tr>
           </thead>
           <tbody>
@@ -185,10 +206,22 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             ticker = signal['Kod']
             ticker_data = df_calc[df_calc['Kod'] == ticker]
             pot_str = "-"
+            fk_str = "-"
+            pddd_str = "-"
+            ma200_str = "-"
+            
             if not ticker_data.empty:
-                pot_val = ticker_data.iloc[0]['Potansiyel Getiri (%)']
+                row = ticker_data.iloc[0]
+                pot_val = row['Potansiyel Getiri (%)']
                 pot_color = "green" if pot_val and pot_val > 0 else "red"
                 pot_str = f"<b><span style='color:{pot_color}'>{pot_val:.2f}%</span></b>" if pd.notna(pot_val) else "-"
+                
+                fk_str = f"{row['F/K']:.2f}"
+                pddd_str = f"{row['PD/DD']:.2f}"
+                
+                ma200_val = row['MA200 Uzaklık (%)']
+                ma200_color = "red" if ma200_val and ma200_val > 0 else "green"
+                ma200_str = f"<span style='color:{ma200_color}'>{ma200_val:.1f}%</span>" if pd.notna(ma200_val) else "-"
 
             html += f"""
             <tr>
@@ -196,6 +229,9 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td>{signal['date']}</td>
               <td>{signal['current_price']:.2f} / {signal['prev_price']:.2f}</td>
               <td><span style="color:red">{signal['current_rsi']:.2f}</span> / {signal['prev_rsi']:.2f}</td>
+              <td>{fk_str}</td>
+              <td>{pddd_str}</td>
+              <td>{ma200_str}</td>
               <td>{pot_str}</td>
             </tr>
             """
@@ -213,9 +249,10 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <th>Sektör</th>
               <th>Fiyat (TL)</th>
               <th>RSI (14)</th>
-              <th>Potansiyel Getiri</th>
-              <th>PD/DD</th>
+              <th>Potansiyel</th>
               <th>F/K</th>
+              <th>PD/DD</th>
+              <th>MA200 %</th>
             </tr>
           </thead>
           <tbody>
@@ -232,6 +269,10 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             pddd = f"{row['PD/DD']:.2f}" if pd.notna(row['PD/DD']) else "-"
             fk = f"{row['F/K']:.2f}" if pd.notna(row['F/K']) else "-"
             
+            ma200_val = row['MA200 Uzaklık (%)']
+            ma200_color = "red" if ma200_val and ma200_val > 0 else "green"
+            ma200_str = f"<span style='color:{ma200_color}'>{ma200_val:.1f}%</span>" if pd.notna(ma200_val) else "-"
+            
             html += f"""
             <tr>
               <td><b>{row['Kod']}</b></td>
@@ -239,8 +280,9 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td>{price}</td>
               <td>{rsi_str}</td>
               <td>{pot_str}</td>
-              <td>{pddd}</td>
               <td>{fk}</td>
+              <td>{pddd}</td>
+              <td>{ma200_str}</td>
             </tr>
             """
         html += "</tbody></table><br>"
