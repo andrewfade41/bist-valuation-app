@@ -240,13 +240,13 @@ if st.session_state.raw_data is not None:
             
     # Takas Filtering
     if 'Yabancı Payı (%)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['Yabancı Payı (%)'] >= min_yabanci]
+        df_filtered = df_filtered[(df_filtered['Yabancı Payı (%)'] >= min_yabanci) | (df_filtered['Yabancı Payı (%)'].isna())]
     if 'Takas (7G Değişim %)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['Takas (7G Değişim %)'] >= min_7g]
+        df_filtered = df_filtered[(df_filtered['Takas (7G Değişim %)'] >= min_7g) | (df_filtered['Takas (7G Değişim %)'].isna())]
     if 'Takas (30G Değişim %)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['Takas (30G Değişim %)'] >= min_30g]
+        df_filtered = df_filtered[(df_filtered['Takas (30G Değişim %)'] >= min_30g) | (df_filtered['Takas (30G Değişim %)'].isna())]
     if 'Takas (90G Değişim %)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['Takas (90G Değişim %)'] >= min_90g]
+        df_filtered = df_filtered[(df_filtered['Takas (90G Değişim %)'] >= min_90g) | (df_filtered['Takas (90G Değişim %)'].isna())]
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
