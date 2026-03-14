@@ -151,6 +151,41 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
         df['RSI (14)'] = pd.to_numeric(df['RSI (14)'], errors='coerce')
         df['Graham Skoru'] += ((df['RSI (14)'] > 0) & (df['RSI (14)'] < 60)).astype(int)
 
+    # ------------------ OPERATIONAL HEALTH SCORE (0-10) ------------------
+    df['Operasyonel Skor'] = 0
+    
+    # 1. Growth (FAVÖK & Net Kar)
+    if 'FAVÖK Yıllık Büyüme (%)' in df.columns:
+        df['FAVÖK Yıllık Büyüme (%)'] = pd.to_numeric(df['FAVÖK Yıllık Büyüme (%)'], errors='coerce')
+        df['Operasyonel Skor'] += (df['FAVÖK Yıllık Büyüme (%)'] > 0).astype(int)
+        df['Operasyonel Skor'] += (df['FAVÖK Yıllık Büyüme (%)'] > 25).astype(int)
+        
+    if 'Net Kar Yıllık Büyüme (%)' in df.columns:
+        df['Net Kar Yıllık Büyüme (%)'] = pd.to_numeric(df['Net Kar Yıllık Büyüme (%)'], errors='coerce')
+        df['Operasyonel Skor'] += (df['Net Kar Yıllık Büyüme (%)'] > 0).astype(int)
+        df['Operasyonel Skor'] += (df['Net Kar Yıllık Büyüme (%)'] > 25).astype(int)
+        
+    # 2. Margins
+    if 'Brüt Marj (%)' in df.columns:
+        df['Brüt Marj (%)'] = pd.to_numeric(df['Brüt Marj (%)'], errors='coerce')
+        df['Operasyonel Skor'] += (df['Brüt Marj (%)'] > 0).astype(int)
+        
+    if 'FAVÖK Marjı (%)' in df.columns:
+        df['FAVÖK Marjı (%)'] = pd.to_numeric(df['FAVÖK Marjı (%)'], errors='coerce')
+        df['Operasyonel Skor'] += (df['FAVÖK Marjı (%)'] > 0).astype(int)
+        
+    if 'Net Kar Marjı (%)' in df.columns:
+        df['Net Kar Marjı (%)'] = pd.to_numeric(df['Net Kar Marjı (%)'], errors='coerce')
+        df['Operasyonel Skor'] += (df['Net Kar Marjı (%)'] > 0).astype(int)
+        
+    # 3. Solvency (Net Debt & Liquidity)
+    if 'Net Borç' in df.columns:
+        df['Net Borç'] = pd.to_numeric(df['Net Borç'], errors='coerce')
+        df['Operasyonel Skor'] += (df['Net Borç'] < 0).astype(int) * 2 # Cash Rich is a strong sign
+        
+    if 'Cari Oran' in df.columns:
+        df['Operasyonel Skor'] += (df['Cari Oran'] > 1.5).astype(int)
+
     # Calculate Graham Number (Graham Sayısı)
     graham_conditions = (df['EPS_Derived'] > 0) & (df['BVPS_Derived'] > 0)
     df['Graham Sayısı'] = np.where(graham_conditions, np.sqrt(22.5 * df['EPS_Derived'] * df['BVPS_Derived']), np.nan)
@@ -162,7 +197,9 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
     cols_to_round = ['Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
                      'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)', 
                      'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)', 'ROE_Derived',
-                     'MA200 Uzaklık (%)', 'RSI (14)', 'Graham Sayısı']
+                     'MA200 Uzaklık (%)', 'RSI (14)', 'Graham Sayısı',
+                     'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
+                     'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)']
     for col in cols_to_round:
         # We need to fillna with None or np.nan before formatting, but actually round handles NaNs gracefully
         if col in df.columns:

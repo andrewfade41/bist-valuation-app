@@ -204,6 +204,16 @@ if st.session_state.raw_data is not None:
             min_30g = st.number_input("Min. 30G Değişim (%)", value=-20.0, step=0.1)
         with tc4:
             min_90g = st.number_input("Min. 90G Değişim (%)", value=-30.0, step=0.1)
+            
+    with st.expander("📈 Operasyonel & Büyüme Filtreleri"):
+        oc1, oc2, oc3 = st.columns(3)
+        with oc1:
+            show_cash_rich = st.checkbox("💵 Sadece Net Borç < 0 (Nakit Zenginleri)", value=False)
+            min_op_score = st.slider("Min. Operasyonel Skor", 0, 10, 0)
+        with oc2:
+            min_favok_growth = st.number_input("Min. FAVÖK Büyümesi (%)", value=-100.0, step=5.0)
+        with oc3:
+            min_net_growth = st.number_input("Min. Net Kar Büyümesi (%)", value=-100.0, step=5.0)
         
     # Filter based on potential return, but include NaNs if min_potential is 0 or less
     if min_potential <= 0:
@@ -247,6 +257,16 @@ if st.session_state.raw_data is not None:
         df_filtered = df_filtered[(df_filtered['Takas (30G Değişim %)'] >= min_30g) | (df_filtered['Takas (30G Değişim %)'].isna())]
     if 'Takas (90G Değişim %)' in df_filtered.columns:
         df_filtered = df_filtered[(df_filtered['Takas (90G Değişim %)'] >= min_90g) | (df_filtered['Takas (90G Değişim %)'].isna())]
+    
+    # Operational & Growth Filters
+    if show_cash_rich and 'Net Borç' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Net Borç'] < 0]
+    if min_op_score > 0:
+        df_filtered = df_filtered[df_filtered['Operasyonel Skor'] >= min_op_score]
+    if 'FAVÖK Yıllık Büyüme (%)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['FAVÖK Yıllık Büyüme (%)'].fillna(-1000) >= min_favok_growth]
+    if 'Net Kar Yıllık Büyüme (%)' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['Net Kar Yıllık Büyüme (%)'].fillna(-1000) >= min_net_growth]
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
@@ -340,12 +360,12 @@ if st.session_state.raw_data is not None:
     
     # Select columns to display
     display_cols = [
-        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 'Halka Açıklık (%)',
-        'Yabancı Payı (%)', 'Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)',
-        'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Skoru', 'Graham Sayısı',
-        'Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)', 
-        'Hedef Fiyat (BIST Ort.)', 'Hedef Fiyat (Sektör PD/DD)',
-        'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)'
+        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 
+        'Operasyonel Skor', 'Graham Skoru', 'Potansiyel Getiri (%)',
+        'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
+        'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)',
+        'Net Borç', 'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Sayısı',
+        'Nihai Hedef Fiyat'
     ]
     
     if show_minervini:
@@ -439,12 +459,29 @@ if st.session_state.raw_data is not None:
     # Styling the dataframe safely
     styled_df = df_display.style
     
+    # Custom styling for Operational Score
+    def color_op_score(val):
+        if pd.isna(val): return ''
+        if val >= 8: return 'color: white; background-color: #2E7D32; font-weight: bold;'
+        if val >= 6: return 'color: #4CAF50; font-weight: bold;'
+        if val <= 3: return 'color: #D32F2F;'
+        return ''
+
+    def color_growth(val):
+        if pd.isna(val): return ''
+        if val > 25: return 'color: #2E7D32; font-weight: bold;'
+        if val > 0: return 'color: #4CAF50;'
+        if val < 0: return 'color: #D32F2F;'
+        return ''
+    
     # Define styling rules
     style_rules = [
         (color_potential, ['Potansiyel Getiri (%)']),
         (color_rsi, ['RSI (14)']),
         (color_ma200, ['MA200 Uzaklık (%)']),
         (color_graham, ['Graham Skoru']),
+        (color_op_score, ['Operasyonel Skor']),
+        (color_growth, ['FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)']),
         (color_halka_aciklik, ['Halka Açıklık (%)']),
         (color_takas_change, ['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)'])
     ]
@@ -456,27 +493,20 @@ if st.session_state.raw_data is not None:
             
     format_dict = {
         "Kapanış (TL)": "₺{:.2f}",
-        "Hedef Fiyat (F/K)": "₺{:.2f}",
-        "Hedef Fiyat (PD/DD)": "₺{:.2f}",
-        "Hedef Fiyat (ROE)": "₺{:.2f}",
-        "Hedef Fiyat (BIST Ort.)": "₺{:.2f}",
-        "Hedef Fiyat (Sektör PD/DD)": "₺{:.2f}",
         "Nihai Hedef Fiyat": "₺{:.2f}",
         "Graham Sayısı": "₺{:.2f}",
         "Potansiyel Getiri (%)": "{:.2f}%",
         "MA200 Uzaklık (%)": "{:.2f}%",
-        "MA50": "₺{:.2f}",
-        "MA150": "₺{:.2f}",
-        "52 Haftalık Zirve": "₺{:.2f}",
-        "52 Haftalık Dip": "₺{:.2f}",
         "RSI (14)": "{:.2f}",
         "F/K": "{:.2f}",
         "PD/DD": "{:.2f}",
-        "Halka Açıklık (%)": "{:.2f}%",
-        "Yabancı Payı (%)": "{:.2f}%",
-        "Takas (7G Değişim %)": "{:+.2f}%",
-        "Takas (30G Değişim %)": "{:+.2f}%",
-        "Takas (90G Değişim %)": "{:+.2f}%"
+        "Brüt Marj (%)": "{:.1f}%",
+        "FAVÖK Marjı (%)": "{:.1f}%",
+        "Net Kar Marjı (%)": "{:.1f}%",
+        "FAVÖK Yıllık Büyüme (%)": "{:+.1f}%",
+        "Net Kar Yıllık Büyüme (%)": "{:+.1f}%",
+        "Net Borç": "₺{:,.0f}",
+        "Operasyonel Skor": "{:d}/10"
     }
     
     # Apply format only to columns that exist in df_display

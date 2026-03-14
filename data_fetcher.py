@@ -167,7 +167,13 @@ def fetch_tv_data():
         "options": {"lang": "tr"},
         "markets": ["turkey"],
         "symbols": {"query": {"types": ["stock"]}},
-        "columns": ["name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", "dividend_yield_recent", "market_cap_basic", "return_on_equity"],
+        "columns": [
+            "name", "earnings_release_date", "RSI", "SMA50", "SMA150", "SMA200", 
+            "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", 
+            "dividend_yield_recent", "market_cap_basic", "return_on_equity",
+            "gross_margin", "operating_margin", "net_margin_ttm",
+            "ebitda_yoy_growth_ttm", "net_income_yoy_growth_ttm", "net_debt"
+        ],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
     }
@@ -190,6 +196,12 @@ def fetch_tv_data():
                 dividend_yield = row['d'][10]
                 market_cap = row['d'][11]
                 roe = row['d'][12]
+                gross_margin = row['d'][13]
+                operating_margin = row['d'][14]
+                net_margin = row['d'][15]
+                ebitda_growth = row['d'][16]
+                net_income_growth = row['d'][17]
+                net_debt = row['d'][18]
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -209,7 +221,13 @@ def fetch_tv_data():
                     'Borç/Özkaynak': debt_to_equity,
                     'Temettü Verimi': dividend_yield,
                     'Piyasa Değeri': market_cap,
-                    'TV_ROE': roe
+                    'TV_ROE': roe,
+                    'Brüt Marj (%)': gross_margin,
+                    'FAVÖK Marjı (%)': operating_margin,
+                    'Net Kar Marjı (%)': net_margin,
+                    'FAVÖK Yıllık Büyüme (%)': ebitda_growth,
+                    'Net Kar Yıllık Büyüme (%)': net_income_growth,
+                    'Net Borç': net_debt
                 })
     except Exception as e:
         print("Error fetching TV data:", e)
