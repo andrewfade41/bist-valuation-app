@@ -199,11 +199,11 @@ if st.session_state.raw_data is not None:
         with tc1:
             min_yabanci = st.number_input("Min. Yabancı Payı (%)", value=0.0)
         with tc2:
-            min_7g = st.number_input("Min. 7G Değişim (%)", value=-10.0, step=0.1)
+            min_7g = st.number_input("Min. 7G Değişim (%)", value=-100.0, step=0.1)
         with tc3:
-            min_30g = st.number_input("Min. 30G Değişim (%)", value=-20.0, step=0.1)
+            min_30g = st.number_input("Min. 30G Değişim (%)", value=-100.0, step=0.1)
         with tc4:
-            min_90g = st.number_input("Min. 90G Değişim (%)", value=-30.0, step=0.1)
+            min_90g = st.number_input("Min. 90G Değişim (%)", value=-100.0, step=0.1)
             
     with st.expander("📈 Operasyonel & Büyüme Filtreleri"):
         oc1, oc2, oc3 = st.columns(3)
@@ -211,9 +211,9 @@ if st.session_state.raw_data is not None:
             show_cash_rich = st.checkbox("💵 Sadece Net Borç < 0 (Nakit Zenginleri)", value=False)
             min_op_score = st.slider("Min. Operasyonel Skor", 0, 10, 0)
         with oc2:
-            min_favok_growth = st.number_input("Min. FAVÖK Büyümesi (%)", value=-100.0, step=5.0)
+            min_favok_growth = st.number_input("Min. FAVÖK Büyümesi (%)", value=-99999.0, step=5.0)
         with oc3:
-            min_net_growth = st.number_input("Min. Net Kar Büyümesi (%)", value=-100.0, step=5.0)
+            min_net_growth = st.number_input("Min. Net Kar Büyümesi (%)", value=-99999.0, step=5.0)
         
     # Filter based on potential return, but include NaNs if min_potential is 0 or less
     if min_potential <= 0:
@@ -264,9 +264,9 @@ if st.session_state.raw_data is not None:
     if min_op_score > 0:
         df_filtered = df_filtered[df_filtered['Operasyonel Skor'] >= min_op_score]
     if 'FAVÖK Yıllık Büyüme (%)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['FAVÖK Yıllık Büyüme (%)'].fillna(-1000) >= min_favok_growth]
+        df_filtered = df_filtered[(df_filtered['FAVÖK Yıllık Büyüme (%)'] >= min_favok_growth) | (df_filtered['FAVÖK Yıllık Büyüme (%)'].isna())]
     if 'Net Kar Yıllık Büyüme (%)' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['Net Kar Yıllık Büyüme (%)'].fillna(-1000) >= min_net_growth]
+        df_filtered = df_filtered[(df_filtered['Net Kar Yıllık Büyüme (%)'] >= min_net_growth) | (df_filtered['Net Kar Yıllık Büyüme (%)'].isna())]
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
