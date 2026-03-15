@@ -1,0 +1,11 @@
+{
+  "name": "BIST Specialist Analyst",
+  "version": "1.0.0",
+  "description": "A specialist for Borsa İstanbul (BIST) equity research and valuation analysis.",
+  "author": "Antigravity",
+  "capabilities": {
+    "skills": ["equity-research", "valuation", "bist-market-context"],
+    "commands": ["/bist-summary", "/valuation-check", "/nakit-zenginleri"]
+  },
+  "icon": "trending_up"
+}

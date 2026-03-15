@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "bist-data": {
+      "command": "python3",
+      "args": ["data_fetcher.py"],
+      "env": {}
+    }
+  }
+}

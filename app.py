@@ -267,6 +267,30 @@ if st.session_state.raw_data is not None:
         df_filtered = df_filtered[(df_filtered['FAVÖK Yıllık Büyüme (%)'] >= min_favok_growth) | (df_filtered['FAVÖK Yıllık Büyüme (%)'].isna())]
     if 'Net Kar Yıllık Büyüme (%)' in df_filtered.columns:
         df_filtered = df_filtered[(df_filtered['Net Kar Yıllık Büyüme (%)'] >= min_net_growth) | (df_filtered['Net Kar Yıllık Büyüme (%)'].isna())]
+
+    # --- AI Analyst Panel ---
+    st.markdown("---")
+    with st.expander("🤖 BIST Yapay Zeka Analisti (Claude Plugin Hazırlığı)", expanded=False):
+        st.info("Bu panel, verileri Claude için hazırlanan 'BIST Specialist' plugin formatına dönüştürür.")
+        
+        # Select top stocks for analysis
+        top_n = st.slider("Analiz edilecek hisse sayısı (Skora göre)", 5, 20, 10)
+        
+        if not df_filtered.empty:
+            # Sort by Operational Score then Graham Score
+            ai_data = df_filtered.sort_values(['Operasyonel Skor', 'Graham Skoru'], ascending=False).head(top_n)
+            
+            # Create a character string for Claude
+            analysis_prompt = f"### BIST ANALİZ VERİ SETİ ({datetime.now().strftime('%d.%m.%Y')})\n\n"
+            analysis_prompt += f"Aşağıdaki {top_n} hisse, Operasyonel ve Graham skorlarına göre en iyi durumdaki şirketlerdir:\n\n"
+            
+            for _, row in ai_data.iterrows():
+                analysis_prompt += f"- **{row['Kod']}**: Operasyonel Skor: {row['Operasyonel Skor']}/10, Graham Skoru: {row['Graham Skoru']}, Potansiyel: %{row['Potansiyel Getiri (%)']:.1f}, Net Borç: ₺{row['Net Borç']:,.0f}, FAVÖK Büyüme: %{row['FAVÖK Yıllık Büyüme (%)']:.1f}\n"
+            
+            st.text_area("Claude'a Yapıştırılacak Mesaj:", value=analysis_prompt, height=200)
+            st.caption("İpucu: Claude'da '/bist-summary' komutunu kullanarak bu verileri profesyonelce yorumlatabilirsiniz.")
+        else:
+            st.warning("Filtrelere uygun hisse bulunamadı.")
             
     # --- Portfolio Optimization UI ---
     st.markdown("---")
