@@ -393,6 +393,7 @@ if st.session_state.raw_data is not None:
     display_cols = [
         'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 
         'Operasyonel Skor', 'Graham Skoru', 'Potansiyel Getiri (%)',
+        'Halka Açıklık (%)',
         'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
         'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)',
         'Net Borç', 'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Sayısı',
@@ -537,7 +538,8 @@ if st.session_state.raw_data is not None:
         "FAVÖK Yıllık Büyüme (%)": "{:+.1f}%",
         "Net Kar Yıllık Büyüme (%)": "{:+.1f}%",
         "Net Borç": "₺{:,.0f}",
-        "Operasyonel Skor": "{:d}/10"
+        "Operasyonel Skor": "{:d}/10",
+        "Halka Açıklık (%)": "%{:.1f}"
     }
     
     # Apply format only to columns that exist in df_display

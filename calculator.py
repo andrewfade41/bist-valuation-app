@@ -199,7 +199,7 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
                      'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)', 'ROE_Derived',
                      'MA200 Uzaklık (%)', 'RSI (14)', 'Graham Sayısı',
                      'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
-                     'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)']
+                     'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)', 'Halka Açıklık (%)']
     for col in cols_to_round:
         # We need to fillna with None or np.nan before formatting, but actually round handles NaNs gracefully
         if col in df.columns:
