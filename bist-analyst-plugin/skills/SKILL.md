@@ -26,6 +26,13 @@ Analyze a specific ticker's metrics:
 Filter the provided context for companies with "Net Borç < 0" and "Operasyonel Skor > 7".
 Identify these as "Defensive Compounders".
 
+### 4. Idea Generation (/fikir-uret)
+When the user asks for new investment ideas or "Undervalued Growth":
+1. **Screen for "Hidden Gems"**: High `Operasyonel Skor` (>= 7) combined with high `Potansiyel Getiri (%)` (>= 30%).
+2. **Growth Quality**: Priority to those with both "FAVÖK" and "Net Kar" growth > 25%.
+3. **Valuation Safety**: Cross-check with "Graham Skoru". Any score > 3 is a strong signal.
+4. **Narrative**: Explain *why* these companies are undervalued (e.g., strong operations haven't been priced in by the market yet).
+
 ## BIST Context Knowledge
 - Understand that BIST firms often face high inflation/FX volatility; focus on **FAVÖK (EBITDA)** as the primary operational metric.
 - Graham Score 4+ is generally considered Excellent in the Turkish market context.

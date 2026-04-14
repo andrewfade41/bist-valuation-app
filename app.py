@@ -273,16 +273,23 @@ if st.session_state.raw_data is not None:
     with st.expander("🤖 BIST Yapay Zeka Analisti (Claude Plugin Hazırlığı)", expanded=False):
         st.info("Bu panel, verileri Claude için hazırlanan 'BIST Specialist' plugin formatına dönüştürür.")
         
-        # Select top stocks for analysis
-        top_n = st.slider("Analiz edilecek hisse sayısı (Skora göre)", 5, 20, 10)
+        mode = st.radio("İş Modu:", ["Genel Özet (/bist-summary)", "Fikir Üretme (/fikir-uret)"], horizontal=True)
+        top_n = st.slider("Analiz edilecek hisse sayısı", 5, 20, 10)
         
         if not df_filtered.empty:
-            # Sort by Operational Score then Graham Score
-            ai_data = df_filtered.sort_values(['Operasyonel Skor', 'Graham Skoru'], ascending=False).head(top_n)
-            
-            # Create a character string for Claude
-            analysis_prompt = f"### BIST ANALİZ VERİ SETİ ({datetime.now().strftime('%d.%m.%Y')})\n\n"
-            analysis_prompt += f"Aşağıdaki {top_n} hisse, Operasyonel ve Graham skorlarına göre en iyi durumdaki şirketlerdir:\n\n"
+            if "Fikir Üretme" in mode:
+                # Prioritize Potential Return + Operational Score
+                ai_data = df_filtered.sort_values(['Potansiyel Getiri (%)', 'Operasyonel Skor'], ascending=False).head(top_n)
+                title = "### BIST FİKİR ÜRETME (DEĞERLİ BÜYÜME) VERİ SETİ"
+                hint = "/fikir-uret"
+            else:
+                # Prioritize Scores
+                ai_data = df_filtered.sort_values(['Operasyonel Skor', 'Graham Skoru'], ascending=False).head(top_n)
+                title = "### BIST GENEL ÖZET VERİ SETİ"
+                hint = "/bist-summary"
+
+            analysis_prompt = f"{title} ({datetime.now().strftime('%d.%m.%Y')})\n\n"
+            analysis_prompt += f"Aşağıdaki {top_n} hisse, seçilen moda göre en öncelikli şirketlerdir:\n\n"
             
             for _, row in ai_data.iterrows():
                 analysis_prompt += f"- **{row['Kod']}**: Operasyonel Skor: {row['Operasyonel Skor']}/10, Graham Skoru: {row['Graham Skoru']}, Potansiyel: %{row['Potansiyel Getiri (%)']:.1f}, Net Borç: ₺{row['Net Borç']:,.0f}, FAVÖK Büyüme: %{row['FAVÖK Yıllık Büyüme (%)']:.1f}\n"
