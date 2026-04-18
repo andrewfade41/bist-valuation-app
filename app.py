@@ -897,17 +897,18 @@ if st.session_state.raw_data is not None:
                                      'Operasyonel Skor', 'Potansiyel Getiri (%)', 'Temettü Verimi (%)']
                         peer_display_cols = [c for c in peer_cols if c in sector_peers.columns]
                         peer_df = sector_peers[peer_display_cols].copy()
-                        # Mevcut hisseyi vurgula
-                        peer_df['_is_selected'] = peer_df['Kod'] == selected_ticker
                         peer_df = peer_df.sort_values('Potansiyel Getiri (%)', ascending=False)
                         
+                        # Mevcut hisseyi vurgula — seçili satırların index'lerini kaydet
+                        selected_indices = set(peer_df[peer_df['Kod'] == selected_ticker].index.tolist())
+                        
                         def highlight_selected(row):
-                            if row['_is_selected']:
+                            if row.name in selected_indices:
                                 return ['background-color: rgba(90, 31, 138, 0.15); font-weight: bold;'] * len(row)
                             return [''] * len(row)
                         
                         st.dataframe(
-                            peer_df.drop(columns=['_is_selected']).style.apply(highlight_selected, axis=1).format({
+                            peer_df.style.apply(highlight_selected, axis=1).format({
                                 "Kapanış (TL)": "₺{:.2f}",
                                 "F/K": "{:.2f}",
                                 "PD/DD": "{:.2f}",
