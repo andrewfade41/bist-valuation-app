@@ -11,3 +11,4 @@ env/
 /lib/
 /include/
 /share/
+.agent/

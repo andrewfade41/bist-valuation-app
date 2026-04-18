@@ -11,6 +11,7 @@ from fetch_earnings import fetch_earnings_dates
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
 from technical_analysis import detect_bullish_divergence, detect_bearish_divergence
+from constants import PERIODS_SNAPSHOT_FILENAME
 import yfinance as yf
 
 # Load environment variables
@@ -22,7 +23,7 @@ SMTP_EMAIL = os.getenv("SMTP_EMAIL")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SUBSCRIBER_EMAILS = os.getenv("SUBSCRIBER_EMAILS", "")
 
-PREVIOUS_FILE = "is_yatirim_periods.json"
+PREVIOUS_FILE = PERIODS_SNAPSHOT_FILENAME
 
 def get_previous_dates():
     if os.path.exists(PREVIOUS_FILE):

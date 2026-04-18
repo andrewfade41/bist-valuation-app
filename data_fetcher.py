@@ -3,6 +3,10 @@ import ssl
 import json
 import urllib.request
 from datetime import datetime, timedelta
+from constants import (
+    IS_YATIRIM_FUNDAMENTALS_URL, IS_YATIRIM_TAKAS_URL,
+    TRADINGVIEW_SCANNER_URL,
+)
 
 def get_nearest_business_day(dt):
     # If Saturday (5) or Sunday (6), shift to Friday
@@ -16,7 +20,7 @@ def fetch_bist_fundamentals():
     # Bypass SSL verification if needed for MacOS python environments
     ssl._create_default_https_context = ssl._create_unverified_context
     
-    url = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/Temel-Degerler-Ve-Oranlar.aspx"
+    url = IS_YATIRIM_FUNDAMENTALS_URL
     
     print("Fetching fundamental data from İş Yatırım...")
     try:
@@ -118,7 +122,7 @@ def fetch_bist_fundamentals():
 def fetch_takas_data(days_back=7, bitis_date=None):
     import requests
     
-    url = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
+    url = IS_YATIRIM_TAKAS_URL
     
     headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -161,7 +165,7 @@ def fetch_takas_data(days_back=7, bitis_date=None):
     return pd.DataFrame()
 
 def fetch_tv_data():
-    url = "https://scanner.tradingview.com/turkey/scan"
+    url = TRADINGVIEW_SCANNER_URL
     data = {
         "filter": [{"left": "name", "operation": "nempty"}],
         "options": {"lang": "tr"},

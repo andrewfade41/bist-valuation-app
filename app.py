@@ -1,13 +1,24 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 import yfinance as yf
 import json
+import math
 from datetime import datetime
 from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
 from portfolio_opt import optimize_portfolio
+from constants import (
+    FRESHNESS_CURRENT_COLOR, FRESHNESS_PREVIOUS_COLOR, FRESHNESS_STALE_COLOR,
+    RSI_OVERSOLD, RSI_OVERBOUGHT, HALKA_ACIKLIK_LOW, HALKA_ACIKLIK_IDEAL_MAX,
+    HALKA_ACIKLIK_HIGH, TAKAS_CHANGE_STRONG, OP_SCORE_EXCELLENT, OP_SCORE_GOOD,
+    OP_SCORE_POOR, GRAHAM_SCORE_EXCELLENT, GRAHAM_SCORE_GOOD, GRAHAM_SCORE_POOR,
+    GROWTH_STRONG_COLOR_THRESHOLD, GRID_MAX_TICKERS, GRID_COLUMNS,
+    CHART_HISTORY_PERIOD, MAX_WATCHLISTS, PORTFOLIO_MIN_TICKERS,
+    PORTFOLIO_MAX_TICKERS,
+)
 import streamlit.components.v1 as components
 
 # Load environment variables
@@ -15,7 +26,7 @@ load_dotenv()
 
 def load_env_watchlists():
     watchlists = {}
-    for i in range(1, 6):
+    for i in range(1, MAX_WATCHLISTS + 1):
         try:
             name = st.secrets.get(f"WATCHLIST_{i}_NAME", os.getenv(f"WATCHLIST_{i}_NAME", ""))
             tickers = st.secrets.get(f"WATCHLIST_{i}_TICKERS", os.getenv(f"WATCHLIST_{i}_TICKERS", ""))
@@ -78,6 +89,105 @@ def render_lightweight_chart(ticker, data_json, container_id):
     </script>
     <style>body {{ margin: 0; padding: 0; background-color: #131722; }}</style>
     """
+
+def _generate_radar_chart_svg(labels, stock_values, sector_values, stock_name, sector_name):
+    """
+    Generates an interactive SVG radar chart comparing stock vs sector metrics.
+    Values should be 0-100 normalized.
+    """
+    n = len(labels)
+    if n < 3:
+        return "<p>Yeterli veri yok</p>"
+    
+    # Chart dimensions
+    cx, cy = 240, 240
+    max_r = 180
+    rings = 5  # concentric rings (20, 40, 60, 80, 100)
+    
+    # Brand colors
+    stock_color = "#E43263"    # Secondary Pink
+    sector_color = "#5A1F8A"   # Primary Purple
+    grid_color = "rgba(255,255,255,0.15)"
+    label_color = "#d1d4dc"
+    bg_color = "#131722"
+    
+    # Calculate angles
+    angles = [2 * math.pi * i / n - math.pi / 2 for i in range(n)]
+    
+    def polar_to_xy(angle, value):
+        r = (value / 100) * max_r
+        x = cx + r * math.cos(angle)
+        y = cy + r * math.sin(angle)
+        return x, y
+    
+    svg_parts = []
+    svg_parts.append(f'''<div style="display:flex;justify-content:center;background:{bg_color};padding:20px;border-radius:16px;border:1px solid rgba(255,255,255,0.1);">
+    <svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+    <rect width="500" height="500" fill="{bg_color}" rx="16"/>''')
+    
+    # Draw concentric ring grid
+    for ring_i in range(1, rings + 1):
+        ring_val = ring_i * (100 / rings)
+        points = []
+        for angle in angles:
+            x, y = polar_to_xy(angle, ring_val)
+            points.append(f"{x:.1f},{y:.1f}")
+        svg_parts.append(f'<polygon points="{" ".join(points)}" fill="none" stroke="{grid_color}" stroke-width="1"/>')
+    
+    # Draw axis lines
+    for angle in angles:
+        x2, y2 = polar_to_xy(angle, 100)
+        svg_parts.append(f'<line x1="{cx}" y1="{cy}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{grid_color}" stroke-width="1"/>')
+    
+    # Draw sector polygon (background)
+    sector_points = []
+    for i, angle in enumerate(angles):
+        x, y = polar_to_xy(angle, sector_values[i])
+        sector_points.append(f"{x:.1f},{y:.1f}")
+    svg_parts.append(f'<polygon points="{" ".join(sector_points)}" fill="rgba(90,31,138,0.2)" stroke="{sector_color}" stroke-width="2" stroke-dasharray="6,3"/>')
+    
+    # Draw stock polygon (foreground)
+    stock_points = []
+    for i, angle in enumerate(angles):
+        x, y = polar_to_xy(angle, stock_values[i])
+        stock_points.append(f"{x:.1f},{y:.1f}")
+    svg_parts.append(f'<polygon points="{" ".join(stock_points)}" fill="rgba(228,50,99,0.25)" stroke="{stock_color}" stroke-width="2.5"/>')
+    
+    # Draw data points and labels
+    for i, angle in enumerate(angles):
+        # Stock data point
+        sx, sy = polar_to_xy(angle, stock_values[i])
+        svg_parts.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="5" fill="{stock_color}" stroke="white" stroke-width="1.5"/>')
+        
+        # Sector data point
+        secx, secy = polar_to_xy(angle, sector_values[i])
+        svg_parts.append(f'<circle cx="{secx:.1f}" cy="{secy:.1f}" r="4" fill="{sector_color}" stroke="white" stroke-width="1"/>')
+        
+        # Labels — position outside the chart
+        lx, ly = polar_to_xy(angle, 118)
+        anchor = "middle"
+        if lx < cx - 10:
+            anchor = "end"
+        elif lx > cx + 10:
+            anchor = "start"
+        
+        svg_parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" fill="{label_color}" font-size="11" font-family="Inter,Arial,sans-serif" text-anchor="{anchor}" dominant-baseline="middle">{labels[i]}</text>')
+        
+        # Value annotations (stock value near the point)
+        vx, vy = polar_to_xy(angle, stock_values[i] + 10 if stock_values[i] < 85 else stock_values[i] - 10)
+        svg_parts.append(f'<text x="{vx:.1f}" y="{vy:.1f}" fill="{stock_color}" font-size="9" font-family="Inter,Arial,sans-serif" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{stock_values[i]:.0f}</text>')
+    
+    # Legend
+    legend_y = 470
+    svg_parts.append(f'<circle cx="140" cy="{legend_y}" r="6" fill="{stock_color}"/>')
+    svg_parts.append(f'<text x="152" y="{legend_y}" fill="{label_color}" font-size="12" font-family="Inter,Arial,sans-serif" dominant-baseline="middle">{stock_name}</text>')
+    svg_parts.append(f'<line x1="270" y1="{legend_y-4}" x2="290" y2="{legend_y-4}" stroke="{sector_color}" stroke-width="2" stroke-dasharray="6,3"/>')
+    svg_parts.append(f'<circle cx="280" cy="{legend_y}" r="5" fill="{sector_color}"/>')
+    svg_parts.append(f'<text x="298" y="{legend_y}" fill="{label_color}" font-size="12" font-family="Inter,Arial,sans-serif" dominant-baseline="middle">{sector_name}</text>')
+    
+    svg_parts.append('</svg></div>')
+    
+    return '\n'.join(svg_parts)
 
 st.set_page_config(page_title="BIST Adil Değer Analizi", layout="wide", page_icon="📈")
 
@@ -307,8 +417,8 @@ if st.session_state.raw_data is not None:
         opt_tickers = df_filtered['Kod'].tolist()
         if len(opt_tickers) < 2:
             st.warning("Optimizasyon için tabloda en az 2 hisse bulunmalıdır.")
-        elif len(opt_tickers) > 60:
-            st.warning(f"Tabloda {len(opt_tickers)} hisse var. Aşırı veri indirmesi API engeline takılabileceği ve çok yavaş çalışacağı için lütfen filtreleri kullanarak hisse sayısını en fazla 60'a düşürünüz. (Örn: Sektör seçin veya Potansiyel Getiriyi artırın)")
+        elif len(opt_tickers) > PORTFOLIO_MAX_TICKERS:
+            st.warning(f"Tabloda {len(opt_tickers)} hisse var. Aşırı veri indirmesi API engeline takılabileceği ve çok yavaş çalışacağı için lütfen filtreleri kullanarak hisse sayısını en fazla {PORTFOLIO_MAX_TICKERS}'a düşürünüz. (Örn: Sektör seçin veya Potansiyel Getiriyi artırın)")
         else:
             if st.button(f"Filtrelenmiş {len(opt_tickers)} Hisse İçin Ağırlıkları Hesapla", type="primary", key="btn_opt"):
                 with st.spinner("Geçmiş piyasa verileri indiriliyor ve temel analiz beklentileriniz ile optimize ediliyor..."):
@@ -381,6 +491,22 @@ if st.session_state.raw_data is not None:
                             st.table(det_df.set_index('Kalem'))
                             
     st.markdown("---")
+    
+    # Q1 Bilanço Sezonu Bilgi Banner'ı
+    if 'Bilanço Güncelliği' in df_filtered.columns:
+        total = len(df_filtered)
+        guncel_count = (df_filtered['Bilanço Güncelliği'] == 'Güncel').sum()
+        onceki_count = (df_filtered['Bilanço Güncelliği'] == 'Önceki').sum()
+        eski_count = (df_filtered['Bilanço Güncelliği'] == 'Eski').sum()
+        
+        if onceki_count > 0 or eski_count > 0:
+            st.info(
+                f"📋 **Bilanço Güncellik Durumu:** "
+                f"🟢 {guncel_count} hisse güncel çeyrek bilançosu açıklamış | "
+                f"🟠 {onceki_count} hisse henüz önceki çeyrek verileriyle gösteriliyor | "
+                f"🔴 {eski_count} hisse 2+ çeyrek eski bilanço verileri kullanıyor. "
+                f"Güncel olmayan hisselerin F/K bazlı hedef fiyatları TTM normalizasyonu ile yıllıklaştırılmıştır."
+            )
         
     st.subheader(f"📊 Değerleme Tablosu ({len(df_filtered)} Hisse)")
     
@@ -391,9 +517,9 @@ if st.session_state.raw_data is not None:
     
     # Select columns to display
     display_cols = [
-        'Kod', 'Sektör', 'Son Dönem', 'Kapanış (TL)', 'F/K', 'PD/DD', 
+        'Kod', 'Sektör', 'Son Dönem', 'Bilanço Güncelliği', 'Kapanış (TL)', 'F/K', 'PD/DD', 
         'Operasyonel Skor', 'Graham Skoru', 'Potansiyel Getiri (%)',
-        'Halka Açıklık (%)',
+        'Halka Açıklık (%)', 'Temettü Verimi (%)',
         'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
         'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)',
         'Net Borç', 'RSI (14)', 'MA200 Uzaklık (%)', 'Graham Sayısı',
@@ -424,8 +550,8 @@ if st.session_state.raw_data is not None:
         
     def color_rsi(val):
         if pd.isna(val) or val == 'Belirsiz': return ''
-        if float(val) < 30: return 'color: green; font-weight: bold;'
-        if float(val) > 70: return 'color: red; font-weight: bold;'
+        if float(val) < RSI_OVERSOLD: return 'color: green; font-weight: bold;'
+        if float(val) > RSI_OVERBOUGHT: return 'color: red; font-weight: bold;'
         return ''
         
     def color_ma200(val):
@@ -437,24 +563,24 @@ if st.session_state.raw_data is not None:
     def color_graham(val):
         if pd.isna(val): return ''
         score = int(val)
-        if score >= 8: return 'color: white; background-color: darkgreen; font-weight: bold;'
-        if score >= 6: return 'color: green; font-weight: bold;'
-        if score <= 3: return 'color: red;'
+        if score >= GRAHAM_SCORE_EXCELLENT: return 'color: white; background-color: darkgreen; font-weight: bold;'
+        if score >= GRAHAM_SCORE_GOOD: return 'color: green; font-weight: bold;'
+        if score <= GRAHAM_SCORE_POOR: return 'color: red;'
         return ''
         
     def color_halka_aciklik(val):
         if pd.isna(val): return ''
-        if val < 15: return 'color: orange; font-weight: bold;' # Düşük likidite
-        if 15 <= val <= 50: return 'color: green; font-weight: bold;' # İdeal aralık
-        if 50 < val <= 80: return 'color: #DAA520;' # Altın sarısı (Biraz yüksek)
-        if val > 80: return 'color: red; font-weight: bold;' # Çok yüksek
+        if val < HALKA_ACIKLIK_LOW: return 'color: orange; font-weight: bold;'
+        if HALKA_ACIKLIK_LOW <= val <= HALKA_ACIKLIK_IDEAL_MAX: return 'color: green; font-weight: bold;'
+        if HALKA_ACIKLIK_IDEAL_MAX < val <= HALKA_ACIKLIK_HIGH: return 'color: #DAA520;'
+        if val > HALKA_ACIKLIK_HIGH: return 'color: red; font-weight: bold;'
         return ''
         
     def color_takas_change(val):
         if pd.isna(val): return ''
-        if val > 1.0: return 'color: white; background-color: darkgreen; font-weight: bold;'
+        if val > TAKAS_CHANGE_STRONG: return 'color: white; background-color: darkgreen; font-weight: bold;'
         if val > 0: return 'color: green; font-weight: bold;'
-        if val < -1.0: return 'color: white; background-color: darkred; font-weight: bold;'
+        if val < -TAKAS_CHANGE_STRONG: return 'color: white; background-color: darkred; font-weight: bold;'
         if val < 0: return 'color: red; font-weight: bold;'
         return ''
         
@@ -463,6 +589,7 @@ if st.session_state.raw_data is not None:
         "Kod": st.column_config.LinkColumn("Kod", width="small", display_text=r"https://www\.tradingview\.com/chart/\?symbol=BIST:(.*)"),
         "Sektör": st.column_config.TextColumn("Sektör", width="small"),
         "Son Dönem": st.column_config.TextColumn("Dönem", width="small"),
+        "Bilanço Güncelliği": st.column_config.TextColumn("Güncellik", width="small"),
         "Kapanış (TL)": st.column_config.NumberColumn("Fiyat (TL)", width="small"),
         "F/K": st.column_config.NumberColumn("F/K", width="small"),
         "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
@@ -485,7 +612,8 @@ if st.session_state.raw_data is not None:
         "Yabancı Payı (%)": st.column_config.NumberColumn("Yabancı Payı (%)", width="small"),
         "Takas (7G Değişim %)": st.column_config.NumberColumn("Takas (7G)", width="small"),
         "Takas (30G Değişim %)": st.column_config.NumberColumn("Takas (30G)", width="small"),
-        "Takas (90G Değişim %)": st.column_config.NumberColumn("Takas (90G)", width="small")
+        "Takas (90G Değişim %)": st.column_config.NumberColumn("Takas (90G)", width="small"),
+        "Temettü Verimi (%)": st.column_config.NumberColumn("Temettü (%)", width="small"),
     }
     
     # Styling the dataframe safely
@@ -494,16 +622,33 @@ if st.session_state.raw_data is not None:
     # Custom styling for Operational Score
     def color_op_score(val):
         if pd.isna(val): return ''
-        if val >= 8: return 'color: white; background-color: #2E7D32; font-weight: bold;'
-        if val >= 6: return 'color: #4CAF50; font-weight: bold;'
-        if val <= 3: return 'color: #D32F2F;'
+        if val >= OP_SCORE_EXCELLENT: return 'color: white; background-color: #2E7D32; font-weight: bold;'
+        if val >= OP_SCORE_GOOD: return 'color: #4CAF50; font-weight: bold;'
+        if val <= OP_SCORE_POOR: return 'color: #D32F2F;'
         return ''
 
     def color_growth(val):
         if pd.isna(val): return ''
-        if val > 25: return 'color: #2E7D32; font-weight: bold;'
+        if val > GROWTH_STRONG_COLOR_THRESHOLD: return 'color: #2E7D32; font-weight: bold;'
         if val > 0: return 'color: #4CAF50;'
         if val < 0: return 'color: #D32F2F;'
+        return ''
+    
+    def color_freshness(val):
+        if pd.isna(val) or val == 'Belirsiz': return 'color: #888;'
+        if val == 'Güncel': return f'color: {FRESHNESS_CURRENT_COLOR}; font-weight: bold;'
+        if val == 'Önceki': return f'color: {FRESHNESS_PREVIOUS_COLOR}; font-weight: bold;'
+        if val == 'Eski': return f'color: {FRESHNESS_STALE_COLOR}; font-weight: bold;'
+        return ''
+    
+    DIVIDEND_YIELD_HIGH = 5  # %5 üzeri = yüksek temetü
+    DIVIDEND_YIELD_GOOD = 2  # %2 üzeri = makul temetü
+    
+    def color_dividend(val):
+        if pd.isna(val): return ''
+        if val >= DIVIDEND_YIELD_HIGH: return 'color: #2E7D32; font-weight: bold;'
+        if val >= DIVIDEND_YIELD_GOOD: return 'color: #4CAF50;'
+        if val > 0: return 'color: #888;'
         return ''
     
     # Define styling rules
@@ -515,7 +660,9 @@ if st.session_state.raw_data is not None:
         (color_op_score, ['Operasyonel Skor']),
         (color_growth, ['FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)']),
         (color_halka_aciklik, ['Halka Açıklık (%)']),
-        (color_takas_change, ['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)'])
+        (color_takas_change, ['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)']),
+        (color_freshness, ['Bilanço Güncelliği']),
+        (color_dividend, ['Temettü Verimi (%)']),
     ]
     
     for func, cols in style_rules:
@@ -539,7 +686,8 @@ if st.session_state.raw_data is not None:
         "Net Kar Yıllık Büyüme (%)": "{:+.1f}%",
         "Net Borç": "₺{:,.0f}",
         "Operasyonel Skor": "{:d}/10",
-        "Halka Açıklık (%)": "%{:.1f}"
+        "Halka Açıklık (%)": "%{:.1f}",
+        "Temettü Verimi (%)": "%{:.2f}",
     }
     
     # Apply format only to columns that exist in df_display
@@ -547,7 +695,7 @@ if st.session_state.raw_data is not None:
     styled_df = styled_df.format(present_formats)
 
     # --- Tabs for Table and Grid View ---
-    tab1, tab2 = st.tabs(["📊 Tablo Görünümü", "🖼️ Grafik Görünümü (Grid)"])
+    tab1, tab2, tab3 = st.tabs(["📊 Tablo Görünümü", "🔍 Hisse Detay (Drill-down)", "🖼️ Grafik Görünümü (Grid)"])
     
     with tab1:
         st.dataframe(
@@ -558,8 +706,288 @@ if st.session_state.raw_data is not None:
         )
         
     with tab2:
-        st.markdown(f"### 📈 Filtrelenmiş İlk {min(12, len(df_filtered))} Hisse Grafiği")
-        grid_tickers = df_filtered['Kod'].tolist()[:12]
+        # =================== HISSE DETAY (DRILL-DOWN) PANELI ===================
+        st.markdown("### 🔍 Hisse Detay Analizi")
+        st.caption("Aşağıdan bir hisse seçerek detaylı bilanço özeti, sektör karşılaştırması, grafik ve DCF hesaplamasına erişin.")
+        
+        ticker_list = df_filtered['Kod'].tolist()
+        if not ticker_list:
+            st.info("Gösterilecek hisse bulunamadı. Lütfen filtreleri kontrol edin.")
+        else:
+            selected_ticker = st.selectbox(
+                "Hisse Seçin",
+                options=ticker_list,
+                index=0,
+                key="detail_ticker_select"
+            )
+            
+            if selected_ticker:
+                stock_row = df_filtered[df_filtered['Kod'] == selected_ticker].iloc[0]
+                stock_sector = stock_row.get('Sektör', 'Unknown')
+                
+                # --------- Üst Bilgi Çubuğu ---------
+                st.markdown(f"## {selected_ticker} — {stock_sector}")
+                
+                m1, m2, m3, m4, m5, m6 = st.columns(6)
+                m1.metric("💰 Fiyat", f"₺{stock_row.get('Kapanış (TL)', 0):,.2f}")
+                m2.metric("🎯 Nihai Hedef", f"₺{stock_row.get('Nihai Hedef Fiyat', 0):,.2f}")
+                
+                pot = stock_row.get('Potansiyel Getiri (%)', 0)
+                m3.metric("📈 Potansiyel", f"%{pot:,.1f}", delta=f"{pot:+.1f}%")
+                m4.metric("📊 F/K", f"{stock_row.get('F/K', 0):,.2f}")
+                m5.metric("📖 PD/DD", f"{stock_row.get('PD/DD', 0):,.2f}")
+                
+                div_yield = stock_row.get('Temettü Verimi (%)', 0)
+                m6.metric("🌾 Temettü", f"%{div_yield:,.2f}" if pd.notna(div_yield) else "Yok")
+                
+                # --------- Detay Panelleri ---------
+                detail_tab1, detail_tab2, detail_tab3, detail_tab4 = st.tabs([
+                    "📊 Bilanço Özeti", "🛡️ Sektör Karşılaştırma", "📉 TradingView Grafik", "💵 Hızlı DCF"
+                ])
+                
+                # ========== TAB 1: BİLANÇO ÖZETİ ==========
+                with detail_tab1:
+                    st.markdown("#### Temel Değerleme Metrikleri")
+                    
+                    # Hedef Fiyat Tablosu
+                    hf_data = {
+                        'Yöntem': ['F/K Bazlı', 'PD/DD Bazlı', 'ROE Bazlı', 'BİST Ort.', 'Sektör PD/DD', 'Graham Sayısı', 'Nihai Hedef'],
+                        'Hedef Fiyat (₺)': [
+                            stock_row.get('Hedef Fiyat (F/K)', np.nan),
+                            stock_row.get('Hedef Fiyat (PD/DD)', np.nan),
+                            stock_row.get('Hedef Fiyat (ROE)', np.nan),
+                            stock_row.get('Hedef Fiyat (BIST Ort.)', np.nan),
+                            stock_row.get('Hedef Fiyat (Sektör PD/DD)', np.nan),
+                            stock_row.get('Graham Sayısı', np.nan),
+                            stock_row.get('Nihai Hedef Fiyat', np.nan),
+                        ]
+                    }
+                    hf_df = pd.DataFrame(hf_data)
+                    kapanış = stock_row.get('Kapanış (TL)', 0)
+                    hf_df['Potansiyel (%)'] = ((hf_df['Hedef Fiyat (₺)'] - kapanış) / kapanış * 100).round(1)
+                    
+                    st.dataframe(
+                        hf_df.style.format({"Hedef Fiyat (₺)": "₺{:.2f}", "Potansiyel (%)": "{:+.1f}%"}),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    st.markdown("#### Operasyonel & Finansal Göstergeler")
+                    fc1, fc2 = st.columns(2)
+                    
+                    with fc1:
+                        fin_metrics = {
+                            'Gösterge': ['Graham Skoru', 'Operasyonel Skor', 'RSI (14)', 'MA200 Uzaklık (%)', 
+                                         'Cari Oran', 'Borç/Özkaynak', 'Halka Açıklık (%)'],
+                            'Değer': [
+                                f"{stock_row.get('Graham Skoru', 0)}/10",
+                                f"{stock_row.get('Operasyonel Skor', 0)}/10",
+                                f"{stock_row.get('RSI (14)', 0):.1f}",
+                                f"%{stock_row.get('MA200 Uzaklık (%)', 0):.1f}",
+                                f"{stock_row.get('Cari Oran', 0):.2f}" if pd.notna(stock_row.get('Cari Oran')) else 'N/A',
+                                f"{stock_row.get('Borç/Özkaynak', 0):.2f}" if pd.notna(stock_row.get('Borç/Özkaynak')) else 'N/A',
+                                f"%{stock_row.get('Halka Açıklık (%)', 0):.1f}" if pd.notna(stock_row.get('Halka Açıklık (%)')) else 'N/A',
+                            ]
+                        }
+                        st.dataframe(pd.DataFrame(fin_metrics), use_container_width=True, hide_index=True)
+                    
+                    with fc2:
+                        growth_metrics = {
+                            'Gösterge': ['Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
+                                         'FAVÖK Büyüme (%)', 'Net Kar Büyüme (%)', 'Net Borç', 'Temettü Verimi (%)'],
+                            'Değer': [
+                                f"%{stock_row.get('Brüt Marj (%)', 0):.1f}" if pd.notna(stock_row.get('Brüt Marj (%)')) else 'N/A',
+                                f"%{stock_row.get('FAVÖK Marjı (%)', 0):.1f}" if pd.notna(stock_row.get('FAVÖK Marjı (%)')) else 'N/A',
+                                f"%{stock_row.get('Net Kar Marjı (%)', 0):.1f}" if pd.notna(stock_row.get('Net Kar Marjı (%)')) else 'N/A',
+                                f"%{stock_row.get('FAVÖK Yıllık Büyüme (%)', 0):+.1f}" if pd.notna(stock_row.get('FAVÖK Yıllık Büyüme (%)')) else 'N/A',
+                                f"%{stock_row.get('Net Kar Yıllık Büyüme (%)', 0):+.1f}" if pd.notna(stock_row.get('Net Kar Yıllık Büyüme (%)')) else 'N/A',
+                                f"₺{stock_row.get('Net Borç', 0):,.0f}" if pd.notna(stock_row.get('Net Borç')) else 'N/A',
+                                f"%{div_yield:.2f}" if pd.notna(div_yield) else 'N/A',
+                            ]
+                        }
+                        st.dataframe(pd.DataFrame(growth_metrics), use_container_width=True, hide_index=True)
+                    
+                    # Bilanço Dönemi Bilgisi
+                    period = stock_row.get('Son Dönem', 'Belirsiz')
+                    freshness = stock_row.get('Bilanço Güncelliği', 'Belirsiz')
+                    ann_factor = stock_row.get('_annualization_factor', 1)
+                    if ann_factor > 1:
+                        st.warning(f"⚠️ Bu hisse **{period}** dönemi bilançosu kullanıyor. EPS, **{ann_factor:.1f}x** çarpanla yıllıklaştırılmıştır (TTM normalizasyonu).")
+                    else:
+                        st.success(f"✅ Bu hisse **{period}** yıl sonu bilançosunu kullanmaktadır. Yıllıklaştırma gerekmemektedir.")
+                
+                # ========== TAB 2: SEKTÖR KARŞILAŞTIRMA (RADAR CHART) ==========
+                with detail_tab2:
+                    st.markdown(f"#### 🛡️ {selected_ticker} vs {stock_sector} Sektör Ortalaması")
+                    
+                    # Sektördeki diğer hisseler
+                    sector_peers = df_filtered[df_filtered['Sektör'] == stock_sector]
+                    
+                    if len(sector_peers) < 2:
+                        st.info(f"{stock_sector} sektöründe karşılaştırılacak yeterli hisse yok (minimum 2 gerekli).")
+                    else:
+                        # Radar chart için metrikler
+                        RADAR_METRICS = {
+                            'F/K Uygunluğu': 'F/K',
+                            'PD/DD Uygunluğu': 'PD/DD',
+                            'Graham Skoru': 'Graham Skoru',
+                            'Op. Skor': 'Operasyonel Skor',
+                            'Brüt Marj': 'Brüt Marj (%)',
+                            'Net Kar Marjı': 'Net Kar Marjı (%)',
+                            'Potansiyel Getiri': 'Potansiyel Getiri (%)',
+                            'Temettü Verimi': 'Temettü Verimi (%)',
+                        }
+                        
+                        # Her metrik için hisse ve sektör ortalaması hesapla (0-100 normalize)
+                        stock_values = []
+                        sector_values = []
+                        labels = []
+                        
+                        for label, col in RADAR_METRICS.items():
+                            if col not in sector_peers.columns:
+                                continue
+                            
+                            col_data = pd.to_numeric(sector_peers[col], errors='coerce').dropna()
+                            stock_val = pd.to_numeric(stock_row.get(col, np.nan), errors='coerce') if col in stock_row.index else np.nan
+                            
+                            if pd.isna(stock_val) or col_data.empty:
+                                continue
+                            
+                            col_min = col_data.min()
+                            col_max = col_data.max()
+                            col_mean = col_data.mean()
+                            
+                            # F/K ve PD/DD için ters normalize (düşük değer daha iyi)
+                            if col in ('F/K', 'PD/DD'):
+                                if col_max != col_min:
+                                    norm_stock = ((col_max - stock_val) / (col_max - col_min)) * 100
+                                    norm_sector = ((col_max - col_mean) / (col_max - col_min)) * 100
+                                else:
+                                    norm_stock = 50
+                                    norm_sector = 50
+                            else:
+                                if col_max != col_min:
+                                    norm_stock = ((stock_val - col_min) / (col_max - col_min)) * 100
+                                    norm_sector = ((col_mean - col_min) / (col_max - col_min)) * 100
+                                else:
+                                    norm_stock = 50
+                                    norm_sector = 50
+                            
+                            # Clamp 0-100
+                            norm_stock = max(0, min(100, norm_stock))
+                            norm_sector = max(0, min(100, norm_sector))
+                            
+                            labels.append(label)
+                            stock_values.append(round(norm_stock, 1))
+                            sector_values.append(round(norm_sector, 1))
+                        
+                        if len(labels) >= 3:
+                            # SVG Radar Chart
+                            radar_html = _generate_radar_chart_svg(
+                                labels, stock_values, sector_values,
+                                selected_ticker, f"{stock_sector} Ort."
+                            )
+                            components.html(radar_html, height=520)
+                        else:
+                            st.warning("Radar chart için yeterli metrik bulunamadı.")
+                        
+                        # Sektör Sıralama Tablosu
+                        st.markdown(f"#### 🏆 {stock_sector} Sektör Sıralaması")
+                        peer_cols = ['Kod', 'Kapanış (TL)', 'F/K', 'PD/DD', 'Graham Skoru', 
+                                     'Operasyonel Skor', 'Potansiyel Getiri (%)', 'Temettü Verimi (%)']
+                        peer_display_cols = [c for c in peer_cols if c in sector_peers.columns]
+                        peer_df = sector_peers[peer_display_cols].copy()
+                        # Mevcut hisseyi vurgula
+                        peer_df['_is_selected'] = peer_df['Kod'] == selected_ticker
+                        peer_df = peer_df.sort_values('Potansiyel Getiri (%)', ascending=False)
+                        
+                        def highlight_selected(row):
+                            if row['_is_selected']:
+                                return ['background-color: rgba(90, 31, 138, 0.15); font-weight: bold;'] * len(row)
+                            return [''] * len(row)
+                        
+                        st.dataframe(
+                            peer_df.drop(columns=['_is_selected']).style.apply(highlight_selected, axis=1).format({
+                                "Kapanış (TL)": "₺{:.2f}",
+                                "F/K": "{:.2f}",
+                                "PD/DD": "{:.2f}",
+                                "Potansiyel Getiri (%)": "{:+.1f}%",
+                                "Temettü Verimi (%)": "%{:.2f}",
+                            }),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                
+                # ========== TAB 3: TRADINGVIEW GRAİK ==========
+                with detail_tab3:
+                    st.markdown(f"#### 📉 {selected_ticker} — 6 Aylık Fiyat Grafiği")
+                    with st.spinner(f"{selected_ticker} fiyat verisi indiriliyor..."):
+                        try:
+                            detail_hist = yf.download(f"{selected_ticker}.IS", period=CHART_HISTORY_PERIOD, interval="1d", progress=False)
+                            if detail_hist is not None and not detail_hist.empty:
+                                # Flatten multi-index if present
+                                if isinstance(detail_hist.columns, pd.MultiIndex):
+                                    detail_hist.columns = [col[0] if isinstance(col, tuple) else col for col in detail_hist.columns]
+                                
+                                ohlc = detail_hist[['Open', 'High', 'Low', 'Close']].dropna().sort_index()
+                                if not ohlc.empty:
+                                    chart_points = []
+                                    for date, row in ohlc.iterrows():
+                                        chart_points.append({
+                                            "time": date.strftime('%Y-%m-%d'),
+                                            "open": float(row['Open']),
+                                            "high": float(row['High']),
+                                            "low": float(row['Low']),
+                                            "close": float(row['Close'])
+                                        })
+                                    tv_html = render_lightweight_chart(selected_ticker, json.dumps(chart_points), f"detail_chart_{selected_ticker}")
+                                    components.html(tv_html, height=420)
+                                    st.caption(f"{len(chart_points)} veri noktası yüklendi.")
+                                else:
+                                    st.warning("Fiyat verisi bulunamadı.")
+                            else:
+                                st.warning(f"{selected_ticker} için fiyat verisi çekilemedi.")
+                        except Exception as e:
+                            st.error(f"Grafik yüklenirken hata: {str(e)}")
+                
+                # ========== TAB 4: HIZLI DCF ==========
+                with detail_tab4:
+                    st.markdown(f"#### 💵 {selected_ticker} — Hızlı DCF Hesaplaması")
+                    
+                    dcf_c1, dcf_c2, dcf_c3 = st.columns(3)
+                    with dcf_c1:
+                        detail_g1 = st.number_input("1-5 Yıl Büyüme (%)", min_value=-50.0, max_value=300.0, value=25.0, step=1.0, key=f"detail_dcf_g1_{selected_ticker}")
+                    with dcf_c2:
+                        detail_g2 = st.number_input("6-10 Yıl Büyüme (%)", min_value=-50.0, max_value=300.0, value=15.0, step=1.0, key=f"detail_dcf_g2_{selected_ticker}")
+                    with dcf_c3:
+                        detail_wacc = st.number_input("WACC (%)", min_value=1.0, max_value=100.0, value=35.0, step=1.0, key=f"detail_dcf_wacc_{selected_ticker}")
+                    
+                    if st.button(f"{selected_ticker} DCF Hesapla", type="primary", key=f"btn_detail_dcf_{selected_ticker}"):
+                        with st.spinner(f"{selected_ticker} için DCF hesaplanıyor..."):
+                            from dcf_model import calculate_dcf
+                            iv, cp, details, err = calculate_dcf(
+                                ticker=selected_ticker,
+                                growth_rate_1_5=detail_g1 / 100.0,
+                                growth_rate_6_10=detail_g2 / 100.0,
+                                discount_rate=detail_wacc / 100.0
+                            )
+                            
+                            if err:
+                                st.error(err)
+                            else:
+                                dc1, dc2 = st.columns(2)
+                                dcf_pot = ((iv - cp) / cp) * 100
+                                dc1.metric("Güncel Fiyat", f"₺{cp:,.2f}")
+                                dc2.metric("DCF Adil Değer", f"₺{iv:,.2f}", f"{dcf_pot:+.1f}% Potansiyel")
+                                
+                                with st.expander("Hesaplama Detayları"):
+                                    det_df = pd.DataFrame(list(details.items()), columns=['Kalem', 'Değer'])
+                                    det_df['Değer'] = det_df['Değer'].apply(lambda x: f"₺{x:,.0f}" if isinstance(x, (int, float)) else x)
+                                    st.table(det_df.set_index('Kalem'))
+    
+    with tab3:
+        st.markdown(f"### 📈 Filtrelenmiş İlk {min(GRID_MAX_TICKERS, len(df_filtered))} Hisse Grafiği")
+        grid_tickers = df_filtered['Kod'].tolist()[:GRID_MAX_TICKERS]
         
         if not grid_tickers:
             st.info("Gösterilecek hisse bulunamadı. Lütfen filtreleri kontrol edin.")
@@ -568,14 +996,14 @@ if st.session_state.raw_data is not None:
                 # Batch download data for the 12 tickers
                 yf_symbols = [f"{t}.IS" for t in grid_tickers]
                 # Download 6 months of daily data
-                hist_df = yf.download(yf_symbols, period="6mo", interval="1d", group_by='ticker', progress=False)
+                hist_df = yf.download(yf_symbols, period=CHART_HISTORY_PERIOD, interval="1d", group_by='ticker', progress=False)
                 
-                # Create a 4-column grid
-                rows = (len(grid_tickers) + 3) // 4
+                # Create a grid
+                rows = (len(grid_tickers) + GRID_COLUMNS - 1) // GRID_COLUMNS
                 for r in range(rows):
-                    cols = st.columns(4)
-                    for c in range(4):
-                        idx = r * 4 + c
+                    cols = st.columns(GRID_COLUMNS)
+                    for c in range(GRID_COLUMNS):
+                        idx = r * GRID_COLUMNS + c
                         if idx < len(grid_tickers):
                             ticker = grid_tickers[idx]
                             t_yf = f"{ticker}.IS"
