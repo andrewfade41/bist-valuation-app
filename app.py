@@ -517,7 +517,7 @@ if st.session_state.raw_data is not None:
     
     # Select columns to display
     display_cols = [
-        'Kod', 'Sektör', 'Son Dönem', 'Bilanço Güncelliği', 'Kapanış (TL)', 'F/K', 'PD/DD', 
+        'Kod', 'Sektör', 'Son Dönem', 'Bilanço Güncelliği', 'Kapanış (TL)', 'F/K', 'PEG', 'PD/DD', 
         'Operasyonel Skor', 'Graham Skoru', 'Potansiyel Getiri (%)',
         'Halka Açıklık (%)', 'Temettü Verimi (%)',
         'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
@@ -592,6 +592,7 @@ if st.session_state.raw_data is not None:
         "Bilanço Güncelliği": st.column_config.TextColumn("Güncellik", width="small"),
         "Kapanış (TL)": st.column_config.NumberColumn("Fiyat (TL)", width="small"),
         "F/K": st.column_config.NumberColumn("F/K", width="small"),
+        "PEG": st.column_config.NumberColumn("PEG", width="small", help="F/K / Net Kar Büyümesi. 1'in altı ucuz kabul edilir."),
         "PD/DD": st.column_config.NumberColumn("PD/DD", width="small"),
         "RSI (14)": st.column_config.NumberColumn("RSI", width="small"),
         "MA200 Uzaklık (%)": st.column_config.NumberColumn("MA200 Uzaklık", width="small"),
@@ -651,6 +652,12 @@ if st.session_state.raw_data is not None:
         if val > 0: return 'color: #888;'
         return ''
     
+    def color_peg(val):
+        if pd.isna(val): return ''
+        if val <= 1.0: return 'color: #2E7D32; font-weight: bold;'
+        if val > 2.0: return 'color: #D32F2F;'
+        return ''
+    
     # Define styling rules
     style_rules = [
         (color_potential, ['Potansiyel Getiri (%)']),
@@ -663,6 +670,7 @@ if st.session_state.raw_data is not None:
         (color_takas_change, ['Takas (7G Değişim %)', 'Takas (30G Değişim %)', 'Takas (90G Değişim %)']),
         (color_freshness, ['Bilanço Güncelliği']),
         (color_dividend, ['Temettü Verimi (%)']),
+        (color_peg, ['PEG']),
     ]
     
     for func, cols in style_rules:
@@ -678,6 +686,7 @@ if st.session_state.raw_data is not None:
         "MA200 Uzaklık (%)": "{:.2f}%",
         "RSI (14)": "{:.2f}",
         "F/K": "{:.2f}",
+        "PEG": "{:.2f}",
         "PD/DD": "{:.2f}",
         "Brüt Marj (%)": "{:.1f}%",
         "FAVÖK Marjı (%)": "{:.1f}%",
@@ -777,11 +786,12 @@ if st.session_state.raw_data is not None:
                     
                     with fc1:
                         fin_metrics = {
-                            'Gösterge': ['Graham Skoru', 'Operasyonel Skor', 'RSI (14)', 'MA200 Uzaklık (%)', 
+                            'Gösterge': ['Graham Skoru', 'Operasyonel Skor', 'PEG Rasyosu', 'RSI (14)', 'MA200 Uzaklık (%)', 
                                          'Cari Oran', 'Borç/Özkaynak', 'Halka Açıklık (%)'],
                             'Değer': [
                                 f"{stock_row.get('Graham Skoru', 0)}/10",
                                 f"{stock_row.get('Operasyonel Skor', 0)}/10",
+                                f"{stock_row.get('PEG', 0):.2f}" if pd.notna(stock_row.get('PEG')) else 'N/A',
                                 f"{stock_row.get('RSI (14)', 0):.1f}",
                                 f"%{stock_row.get('MA200 Uzaklık (%)', 0):.1f}",
                                 f"{stock_row.get('Cari Oran', 0):.2f}" if pd.notna(stock_row.get('Cari Oran')) else 'N/A',

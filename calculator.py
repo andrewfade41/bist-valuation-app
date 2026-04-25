@@ -176,6 +176,19 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
         df['MA200 Uzaklık (%)'] = np.nan
         df['RSI (14)'] = np.nan
 
+    # ------------------ PEG RATIO CALCULATION ------------------
+    # PEG = (F/K) / (Net Kar Yıllık Büyüme)
+    # Growth is provided in percentage (e.g., 50 for 50%).
+    # If growth <= 0, PEG is not meaningful for traditional valuation.
+    if 'Net Kar Yıllık Büyüme (%)' in df.columns:
+        df['PEG'] = np.where(
+            (df['Net Kar Yıllık Büyüme (%)'] > 0) & (df['F/K'] > 0),
+            df['F/K'] / df['Net Kar Yıllık Büyüme (%)'],
+            np.nan
+        )
+    else:
+        df['PEG'] = np.nan
+
     # Average Target Price (Eksik verileri yok sayarak hesaplar) - using original 3 formulas
     hesaplanan_kolonlar = ['Hedef Fiyat (F/K)', 'Hedef Fiyat (PD/DD)', 'Hedef Fiyat (ROE)']
     df['Nihai Hedef Fiyat'] = df[hesaplanan_kolonlar].mean(axis=1)
@@ -298,7 +311,8 @@ def calculate_fair_values(df, target_fk=10.0, target_pddd=1.5, expected_return=0
                      'Nihai Hedef Fiyat', 'Potansiyel Getiri (%)', 'ROE_Derived',
                      'MA200 Uzaklık (%)', 'RSI (14)', 'Graham Sayısı',
                      'Brüt Marj (%)', 'FAVÖK Marjı (%)', 'Net Kar Marjı (%)',
-                     'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)', 'Halka Açıklık (%)']
+                     'FAVÖK Yıllık Büyüme (%)', 'Net Kar Yıllık Büyüme (%)', 'Halka Açıklık (%)',
+                     'PEG']
     for col in cols_to_round:
         # We need to fillna with None or np.nan before formatting, but actually round handles NaNs gracefully
         if col in df.columns:
