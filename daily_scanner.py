@@ -11,6 +11,7 @@ from fetch_earnings import fetch_earnings_dates
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
 from technical_analysis import detect_bullish_divergence, detect_bearish_divergence
+from sentiment_analyzer import fetch_stock_news, get_overall_sentiment
 from constants import PERIODS_SNAPSHOT_FILENAME
 import yfinance as yf
 
@@ -22,6 +23,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SUBSCRIBER_EMAILS = os.getenv("SUBSCRIBER_EMAILS", "")
+PORTFOLIO_TICKERS = os.getenv("PORTFOLIO_TICKERS", "")
 
 PREVIOUS_FILE = PERIODS_SNAPSHOT_FILENAME
 
@@ -51,11 +53,96 @@ def find_changed_tickers(current_dates, previous_dates):
             })
     return changed_tickers
 
-def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None):
+def get_portfolio_sentiment(portfolio_str):
+    if not portfolio_str:
+        return []
+    
+    tickers = [t.strip() for t in portfolio_str.split(",") if t.strip()]
+    results = []
+    
+    print(f"BİLGİ: {len(tickers)} adet portföy hissesi için duyarlılık analizi başlatılıyor...")
+    for ticker in tickers:
+        try:
+            # For email, we use a smaller limit to save time/bandwidth
+            news = fetch_stock_news(ticker, limit=5)
+            score, summary, _ = get_overall_sentiment(news)
+            results.append({
+                "Kod": ticker,
+                "Skor": score,
+                "Özet": summary,
+                "Adet": len(news)
+            })
+        except Exception as e:
+            print(f"HATA: {ticker} sentiment analizi başarısız: {e}")
+            
+    return results
+
+def get_discovery_highlights(candidates, rsi_df, div_signals):
+    """
+    Analyzes sentiment for stocks that triggered technical signals.
+    Returns highlights where sentiment is bullish.
+    """
+    if not candidates:
+        return []
+        
+    highlights = []
+    print(f"BİLGİ: {len(candidates)} keşif adayı için duyarlılık analizi başlatılıyor...")
+    
+    for ticker in candidates:
+        try:
+            news = fetch_stock_news(ticker, limit=5)
+            score, summary, css_class = get_overall_sentiment(news)
+            
+            # Only highlight if sentiment is bullish (> 60)
+            if score > 60:
+                # Find why it's a candidate
+                reasons = []
+                if any(s['Kod'] == ticker for s in div_signals):
+                    reasons.append("Pozitif Uyumsuzluk")
+                if not rsi_df[rsi_df['Kod'] == ticker].empty:
+                    reasons.append("RSI Aşırı Satım")
+                    
+                highlights.append({
+                    "Kod": ticker,
+                    "Skor": score,
+                    "Özet": summary,
+                    "Neden": " + ".join(reasons) if reasons else "Yüksek Potansiyel"
+                })
+        except Exception:
+            pass
+            
+    return highlights
+
+def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None, portfolio_sentiment=None, discovery_highlights=None):
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
     """
+    
+    if discovery_highlights:
+        html += f"""
+        <div style="background-color: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+          <h2 style="color: #166534; margin-top: 0;">🎯 Günün Keşif Sinyalleri</h2>
+          <p style="color: #166534;">Hem <b>teknik göstergeleri</b> hem de <b>haber akışı (sentiment)</b> pozitif olan, günün öne çıkan fırsat adayları:</p>
+          
+          <table border="0" cellpadding="10" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+            <tr style="border-bottom: 1px solid #bbf7d0;">
+              <th align="left">Hisse</th>
+              <th align="left">Sinyal Nedeni</th>
+              <th align="left">Duyarlılık Skoru</th>
+              <th align="left">Görünüm</th>
+            </tr>
+        """
+        for item in discovery_highlights:
+            html += f"""
+            <tr style="border-bottom: 1px solid #f0fdf4;">
+              <td style="padding: 12px 10px;"><b>{item['Kod']}</b></td>
+              <td><span style="background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 6px; font-size: 12px;">{item['Neden']}</span></td>
+              <td style="color: #15803d; font-weight: bold;">{item['Skor']}/100</td>
+              <td style="color: #15803d;">{item['Özet']}</td>
+            </tr>
+            """
+        html += "</table></div>"
     
     # --- SORTING LOGIC ---
     if rsi_alerts_df is not None and not rsi_alerts_df.empty:
@@ -301,6 +388,36 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             """
         html += "</tbody></table><br>"
     
+    if portfolio_sentiment:
+        html += f"""
+        <h2>🏢 Portföy Duyarlılık (Sentiment) Analizi</h2>
+        <p>Elinizdeki hisseler için son haber akışına göre hesaplanan duyarlılık skorları:</p>
+        
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
+          <thead style="background-color: #f2f2f2;">
+            <tr>
+              <th>Kod</th>
+              <th>Duyarlılık Skoru</th>
+              <th>Durum</th>
+              <th>Haber Sayısı</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for item in portfolio_sentiment:
+            score = item['Skor']
+            score_color = "green" if score > 60 else ("red" if score < 40 else "#333")
+            
+            html += f"""
+            <tr>
+              <td><b>{item['Kod']}</b></td>
+              <td style="color: {score_color}; font-weight: bold;">{score}/100</td>
+              <td>{item['Özet']}</td>
+              <td style="text-align: center;">{item['Adet']}</td>
+            </tr>
+            """
+        html += "</tbody></table><br>"
+    
     html += """
           </tbody>
         </table>
@@ -421,15 +538,27 @@ def main():
         except Exception as e:
             print(f"HATA: {ticker} için geçmiş veri çekilemedi: {e}")
 
-    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals and not bearish_signals:
-        print("BİLGİ: Ne yeni bilanço, ne RSI, ne de uyumsuzluk alarmi bulundu.")
+    # 3.4. Process Portfolio Sentiment
+    portfolio_sentiment = get_portfolio_sentiment(PORTFOLIO_TICKERS)
+    
+    # 3.5. Discovery Analysis (Signals + Sentiment)
+    discovery_candidates = set()
+    if not rsi_alerts_df.empty:
+        discovery_candidates.update(rsi_alerts_df['Kod'].tolist())
+    if divergence_signals:
+        discovery_candidates.update([s['Kod'] for s in divergence_signals])
+        
+    discovery_highlights = get_discovery_highlights(list(discovery_candidates), rsi_alerts_df, divergence_signals)
+
+    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals and not bearish_signals and not portfolio_sentiment and not discovery_highlights:
+        print("BİLGİ: Kayda değer bir değişim veya keşif bulunamadı.")
         save_current_dates(current_dates)
         return
         
-    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI, {len(divergence_signals)} pozitif ve {len(bearish_signals)} negatif uyumsuzluk bulundu.")
+    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI, {len(divergence_signals)} pozitif, {len(discovery_highlights)} keşif özeti tamamlandı.")
     
     # 4. Generate HTML Email Report
-    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals, bearish_signals)
+    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals, bearish_signals, portfolio_sentiment, discovery_highlights)
     
     date_str = datetime.now().strftime("%d.%m.%Y")
     subject = f"🔔 BİST Günlük Tarama & Teknik Alarmlar - {date_str}"
