@@ -1037,6 +1037,10 @@ if st.session_state.raw_data is not None:
                                         else:
                                             st.markdown("⚪")
                                     with c2:
+                                        # Display Authority Badge
+                                        if item.get('is_authority'):
+                                            st.markdown("⭐ **[Otorite Kaynak]**")
+                                        
                                         st.markdown(f"**[{item['title']}]({item['link']})**")
                                         st.caption(f"Kaynak: {item['source']} | Tarih: {item['published']}")
                                         if item['keywords']:
