@@ -65,7 +65,9 @@ def score_headline(headline):
 
 def fetch_rss_feed(query, limit=10):
     """Internal helper to fetch news from a specific query."""
-    encoded_query = urllib.parse.quote(query)
+    # Add 'when:1y' to filter news from the last year
+    query_with_time = f"{query} when:1y"
+    encoded_query = urllib.parse.quote(query_with_time)
     rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=tr&gl=TR&ceid=TR:tr"
     
     items = []
