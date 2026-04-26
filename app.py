@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
 from portfolio_opt import optimize_portfolio
+from sentiment_analyzer import fetch_stock_news, get_overall_sentiment
 from constants import (
     FRESHNESS_CURRENT_COLOR, FRESHNESS_PREVIOUS_COLOR, FRESHNESS_STALE_COLOR,
     RSI_OVERSOLD, RSI_OVERBOUGHT, HALKA_ACIKLIK_LOW, HALKA_ACIKLIK_IDEAL_MAX,
@@ -750,8 +751,8 @@ if st.session_state.raw_data is not None:
                 m6.metric("🌾 Temettü", f"%{div_yield:,.2f}" if pd.notna(div_yield) else "Yok")
                 
                 # --------- Detay Panelleri ---------
-                detail_tab1, detail_tab2, detail_tab3, detail_tab4 = st.tabs([
-                    "📊 Bilanço Özeti", "🛡️ Sektör Karşılaştırma", "📉 TradingView Grafik", "💵 Hızlı DCF"
+                detail_tab1, detail_tab2, detail_tab3, detail_tab4, detail_tab5 = st.tabs([
+                    "📊 Bilanço Özeti", "🛡️ Sektör Karşılaştırma", "📉 TradingView Grafik", "💵 Hızlı DCF", "📰 Haberler & Sentiment"
                 ])
                 
                 # ========== TAB 1: BİLANÇO ÖZETİ ==========
@@ -995,6 +996,52 @@ if st.session_state.raw_data is not None:
                                     det_df = pd.DataFrame(list(details.items()), columns=['Kalem', 'Değer'])
                                     det_df['Değer'] = det_df['Değer'].apply(lambda x: f"₺{x:,.0f}" if isinstance(x, (int, float)) else x)
                                     st.table(det_df.set_index('Kalem'))
+
+                # ========== TAB 5: HABERLER & SENTIMENT ==========
+                with detail_tab5:
+                    st.markdown(f"#### 📰 {selected_ticker} Haber Akışı ve Duyarlılık Analizi")
+                    
+                    with st.spinner("Haberler çekiliyor ve analiz ediliyor..."):
+                        news_items = fetch_stock_news(selected_ticker)
+                        
+                        if not news_items:
+                            st.info("Bu hisse için yakın zamanda önemli bir haber bulunamadı.")
+                        else:
+                            score, summary, css_class = get_overall_sentiment(news_items)
+                            
+                            # Sentiment Gauge/Metric
+                            sc1, sc2 = st.columns([1, 2])
+                            with sc1:
+                                delta_val = score - 50
+                                st.metric("Genel Duyarlılık Skoru", f"{score}/100", delta=f"{delta_val:+.1f}", delta_color="normal")
+                            with sc2:
+                                st.markdown(f"**Özet:** {summary}")
+                                if css_class == "bullish":
+                                    st.success("Haber akışı hisse üzerinde pozitif bir algı yaratıyor.")
+                                elif css_class == "bearish":
+                                    st.error("Haber akışı hisse üzerinde negatif bir baskı oluşturabilir.")
+                                else:
+                                    st.info("Haber akışı şu an için nötr veya dengeli bir seyir izliyor.")
+                            
+                            st.markdown("---")
+                            st.subheader("Son Haberler")
+                            
+                            for item in news_items:
+                                with st.container():
+                                    c1, c2 = st.columns([0.1, 0.9])
+                                    with c1:
+                                        if item['score'] > 0:
+                                            st.markdown("🟢")
+                                        elif item['score'] < 0:
+                                            st.markdown("🔴")
+                                        else:
+                                            st.markdown("⚪")
+                                    with c2:
+                                        st.markdown(f"**[{item['title']}]({item['link']})**")
+                                        st.caption(f"Kaynak: {item['source']} | Tarih: {item['published']}")
+                                        if item['keywords']:
+                                            st.caption(f"Anahtar Kelimeler: {', '.join(item['keywords'])}")
+                                    st.markdown("")
     
     with tab3:
         st.markdown(f"### 📈 Filtrelenmiş İlk {min(GRID_MAX_TICKERS, len(df_filtered))} Hisse Grafiği")
