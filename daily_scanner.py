@@ -149,12 +149,22 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
         rsi_alerts_df = rsi_alerts_df.sort_values(by='RSI (14)', ascending=True)
         
     if divergence_signals:
-        # Sort by date (dd.mm.yyyy) newest first
-        divergence_signals.sort(key=lambda x: datetime.strptime(x['date'], '%d.%m.%Y'), reverse=True)
+        # Sort by date (dd.mm.yyyy) newest first, handle invalid/empty dates robustly
+        def parse_div_date(x):
+            try:
+                return datetime.strptime(x.get('date', ''), '%d.%m.%Y')
+            except (ValueError, TypeError):
+                return datetime.min
+        divergence_signals.sort(key=parse_div_date, reverse=True)
         
     if bearish_signals:
-        # Sort by date (dd.mm.yyyy) newest first
-        bearish_signals.sort(key=lambda x: datetime.strptime(x['date'], '%d.%m.%Y'), reverse=True)
+        # Sort by date (dd.mm.yyyy) newest first, handle invalid/empty dates robustly
+        def parse_bear_date(x):
+            try:
+                return datetime.strptime(x.get('date', ''), '%d.%m.%Y')
+            except (ValueError, TypeError):
+                return datetime.min
+        bearish_signals.sort(key=parse_bear_date, reverse=True)
     # ---------------------
     
     if changed_tickers:

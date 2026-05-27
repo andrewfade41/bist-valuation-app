@@ -95,7 +95,7 @@ def detect_bullish_divergence(df, order=5):
                         'prev_price': float(prev_price_low),
                         'current_rsi': float(current_rsi),
                         'prev_rsi': float(prev_rsi),
-                        'date': df_idx.loc[recent_trough_idx, 'Date'].strftime('%d.%m.%Y') if 'Date' in df_idx.columns else ''
+                        'date': df.index[recent_trough_idx].strftime('%d.%m.%Y') if hasattr(df.index[recent_trough_idx], 'strftime') else str(df.index[recent_trough_idx])
                     }
     return None
 
@@ -168,6 +168,6 @@ def detect_bearish_divergence(df, order=5):
                         'prev_price': float(prev_price_high),
                         'current_rsi': float(current_rsi),
                         'prev_rsi': float(prev_rsi),
-                        'date': df_idx.loc[recent_peak_idx, 'Date'].strftime('%d.%m.%Y') if 'Date' in df_idx.columns else ''
+                        'date': df.index[recent_peak_idx].strftime('%d.%m.%Y') if hasattr(df.index[recent_peak_idx], 'strftime') else str(df.index[recent_peak_idx])
                     }
     return None
