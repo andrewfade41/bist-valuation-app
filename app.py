@@ -57,6 +57,17 @@ def save_portfolio_costs(costs):
     except Exception as e:
         st.error(f"Maliyetler kaydedilemedi: {e}")
 
+CONSENSUS_FILE = "consensus_targets.json"
+
+def load_consensus_targets():
+    if os.path.exists(CONSENSUS_FILE):
+        try:
+            with open(CONSENSUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
 def render_lightweight_chart(ticker, data_json, container_id):
     """Generates the HTML for a TradingView Lightweight Chart using provided OHLC data."""
     return f"""
@@ -1185,6 +1196,7 @@ if st.session_state.raw_data is not None:
         st.markdown("#### 🚨 Portföy Swing & Kar Al Sinyalleri")
         
         active_costs = load_portfolio_costs()
+        consensus_data = load_consensus_targets()
         analysis_rows = []
         
         total_investment = 0.0
@@ -1204,6 +1216,15 @@ if st.session_state.raw_data is not None:
             current_price = float(row['Kapanış (TL)'])
             rsi = float(row['RSI (14)']) if pd.notna(row['RSI (14)']) else np.nan
             ma50 = float(row['MA50']) if pd.notna(row['MA50']) else np.nan
+            
+            # Load consensus target data
+            cons_info = consensus_data.get(t, {})
+            avg_target = float(cons_info.get("avg_target", 0.0))
+            count = float(cons_info.get("count", 0.0))
+            
+            cons_pot = np.nan
+            if avg_target > 0:
+                cons_pot = ((avg_target - current_price) / current_price) * 100
             
             gain_pct = ((current_price - buy_price) / buy_price) * 100
             
@@ -1261,6 +1282,9 @@ if st.session_state.raw_data is not None:
                 "TP3 (+30%)": tp3,
                 "RSI (14)": rsi,
                 "SMA50 (₺)": ma50,
+                "Konsensüs Ort. (₺)": avg_target if avg_target > 0 else np.nan,
+                "Konsensüs Pot. (%)": cons_pot,
+                "Analist Sayısı": count if count > 0 else np.nan,
                 "Öneri / Durum": status,
                 "Açıklama / Aksiyon": rec
             })
@@ -1300,7 +1324,10 @@ if st.session_state.raw_data is not None:
                 "TP2 (+20%)": "₺{:.2f}",
                 "TP3 (+30%)": "₺{:.2f}",
                 "RSI (14)": "{:.1f}",
-                "SMA50 (₺)": "₺{:.2f}"
+                "SMA50 (₺)": "₺{:.2f}",
+                "Konsensüs Ort. (₺)": "₺{:.2f}",
+                "Konsensüs Pot. (%)": "{:+.1f}%",
+                "Analist Sayısı": "{:.0f}"
             }, na_rep="-")
             
             st.dataframe(

@@ -124,6 +124,16 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
         except Exception:
             pass
 
+    # Load Consensus Target Data
+    consensus_file = "consensus_targets.json"
+    consensus_data = {}
+    if os.path.exists(consensus_file):
+        try:
+            with open(consensus_file, 'r', encoding='utf-8') as f:
+                consensus_data = json.load(f)
+        except Exception:
+            pass
+
     portfolio_html = ""
     if costs:
         portfolio_rows_html = ""
@@ -145,6 +155,16 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             rsi = float(row['RSI (14)']) if pd.notna(row['RSI (14)']) else np.nan
             
             gain_pct = ((current_price - buy_price) / buy_price) * 100
+            
+            # Consensus values
+            cons_info = consensus_data.get(ticker, {})
+            avg_target = float(cons_info.get("avg_target", 0.0))
+            count = int(cons_info.get("count", 0))
+            
+            cons_pot_str = "-"
+            if avg_target > 0:
+                cons_pot = ((avg_target - current_price) / current_price) * 100
+                cons_pot_str = f"{cons_pot:+.1f}%"
             
             total_inv += buy_price
             total_cur += current_price
@@ -202,8 +222,11 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td style="padding: 10px;">₺{current_price:.2f}</td>
               <td style="padding: 10px; color: {'green' if gain_pct >= 0 else 'red'}; font-weight: bold;">{gain_pct:+.2f}%</td>
               <td style="padding: 10px; color: {status_color}; font-weight: bold;">{status}</td>
+              <td style="padding: 10px;">{f'₺{avg_target:.2f}' if avg_target > 0 else '-'}</td>
+              <td style="padding: 10px; color: {'green' if (avg_target > current_price) else 'red'}; font-weight: bold;">{cons_pot_str}</td>
               <td style="padding: 10px; font-size: 12px; color: #555;">{rec}</td>
               <td style="padding: 10px; color: #555;">{f'{rsi:.1f}' if pd.notna(rsi) else '-'}</td>
+              <td style="padding: 10px; color: #555; text-align: center;">{f'{count}' if count > 0 else '-'}</td>
             </tr>
             """
             
@@ -229,8 +252,11 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
                 <th style="padding: 8px 10px;">Son Fiyat</th>
                 <th style="padding: 8px 10px;">Getiri (%)</th>
                 <th style="padding: 8px 10px;">Durum</th>
+                <th style="padding: 8px 10px;">Konsensüs Ort.</th>
+                <th style="padding: 8px 10px;">Kalan Pot.</th>
                 <th style="padding: 8px 10px;">Öneri / Aksiyon</th>
                 <th style="padding: 8px 10px;">RSI</th>
+                <th style="padding: 8px 10px;">Kurum</th>
               </tr>
             </thead>
             <tbody>

@@ -1,0 +1,606 @@
+{
+    "FROTO": {
+        "avg_target": 147.07928571428573,
+        "count": 28
+    },
+    "DOAS": {
+        "avg_target": 269.84777777777776,
+        "count": 18
+    },
+    "TOASO": {
+        "avg_target": 423.4586956521739,
+        "count": 23
+    },
+    "ENKAI": {
+        "avg_target": 115.42999999999999,
+        "count": 17
+    },
+    "ALARK": {
+        "avg_target": 152.38714285714286,
+        "count": 7
+    },
+    "AKSEN": {
+        "avg_target": 103.73285714285714,
+        "count": 14
+    },
+    "GWIND": {
+        "avg_target": 43.78181818181818,
+        "count": 11
+    },
+    "BIOEN": {
+        "avg_target": 21.05,
+        "count": 2
+    },
+    "ZOREN": {
+        "avg_target": 3.9,
+        "count": 2
+    },
+    "YKBNK": {
+        "avg_target": 51.00551724137931,
+        "count": 29
+    },
+    "VAKBN": {
+        "avg_target": 42.87391304347826,
+        "count": 23
+    },
+    "ULKER": {
+        "avg_target": 181.80294117647057,
+        "count": 17
+    },
+    "TUPRS": {
+        "avg_target": 322.1940909090909,
+        "count": 22
+    },
+    "TTKOM": {
+        "avg_target": 89.50500000000001,
+        "count": 22
+    },
+    "TSKB": {
+        "avg_target": 19.631499999999996,
+        "count": 20
+    },
+    "THYAO": {
+        "avg_target": 447.81870967741935,
+        "count": 31
+    },
+    "TCELL": {
+        "avg_target": 159.5434482758621,
+        "count": 29
+    },
+    "TAVHL": {
+        "avg_target": 447.3776,
+        "count": 25
+    },
+    "SISE": {
+        "avg_target": 61.082352941176474,
+        "count": 17
+    },
+    "SELEC": {
+        "avg_target": 125.23555555555555,
+        "count": 9
+    },
+    "SAHOL": {
+        "avg_target": 159.2994117647059,
+        "count": 17
+    },
+    "PGSUS": {
+        "avg_target": 291.3117857142857,
+        "count": 28
+    },
+    "PETKM": {
+        "avg_target": 19.50307692307692,
+        "count": 13
+    },
+    "OYAKC": {
+        "avg_target": 34.983999999999995,
+        "count": 10
+    },
+    "MGROS": {
+        "avg_target": 917.8524137931033,
+        "count": 29
+    },
+    "KRDMD": {
+        "avg_target": 45.37800000000001,
+        "count": 15
+    },
+    "KCHOL": {
+        "avg_target": 310.7308695652174,
+        "count": 23
+    },
+    "ISCTR": {
+        "avg_target": 21.24461538461538,
+        "count": 26
+    },
+    "HALKB": {
+        "avg_target": 44.56368421052632,
+        "count": 19
+    },
+    "GARAN": {
+        "avg_target": 198.01966666666667,
+        "count": 30
+    },
+    "EREGL": {
+        "avg_target": 41.060869565217395,
+        "count": 23
+    },
+    "CIMSA": {
+        "avg_target": 73.03631578947369,
+        "count": 19
+    },
+    "CCOLA": {
+        "avg_target": 98.9604761904762,
+        "count": 21
+    },
+    "BIMAS": {
+        "avg_target": 468.18571428571425,
+        "count": 28
+    },
+    "ASELS": {
+        "avg_target": 418.03541666666666,
+        "count": 24
+    },
+    "ARCLK": {
+        "avg_target": 157.90583333333333,
+        "count": 24
+    },
+    "AKCNS": {
+        "avg_target": 255.27399999999997,
+        "count": 10
+    },
+    "AKBNK": {
+        "avg_target": 104.59281250000002,
+        "count": 32
+    },
+    "AGHOL": {
+        "avg_target": 48.44625,
+        "count": 8
+    },
+    "EKGYO": {
+        "avg_target": 31.78,
+        "count": 17
+    },
+    "TTRAK": {
+        "avg_target": 609.38,
+        "count": 17
+    },
+    "TKNSA": {
+        "avg_target": 38.24399999999999,
+        "count": 5
+    },
+    "TABGD": {
+        "avg_target": 362.741,
+        "count": 10
+    },
+    "KOTON": {
+        "avg_target": 25.504,
+        "count": 5
+    },
+    "DESA": {
+        "avg_target": 18.0,
+        "count": 1
+    },
+    "DOHOL": {
+        "avg_target": 30.150000000000002,
+        "count": 8
+    },
+    "ALBRK": {
+        "avg_target": 11.959999999999999,
+        "count": 10
+    },
+    "ASTOR": {
+        "avg_target": 346.93454545454546,
+        "count": 11
+    },
+    "MPARK": {
+        "avg_target": 627.68,
+        "count": 15
+    },
+    "MAVI": {
+        "avg_target": 63.32681818181818,
+        "count": 22
+    },
+    "BINHO": {
+        "avg_target": 17.35,
+        "count": 1
+    },
+    "BRISA": {
+        "avg_target": 104.95,
+        "count": 2
+    },
+    "RGYAS": {
+        "avg_target": 291.6042857142857,
+        "count": 7
+    },
+    "LOGO": {
+        "avg_target": 234.4922222222222,
+        "count": 9
+    },
+    "KCAER": {
+        "avg_target": 20.106666666666666,
+        "count": 6
+    },
+    "BRSAN": {
+        "avg_target": 756.0,
+        "count": 2
+    },
+    "TRGYO": {
+        "avg_target": 122.10181818181819,
+        "count": 11
+    },
+    "YATAS": {
+        "avg_target": 61.94499999999999,
+        "count": 6
+    },
+    "SOKM": {
+        "avg_target": 81.67933333333333,
+        "count": 15
+    },
+    "TRALT": {
+        "avg_target": 48.228571428571435,
+        "count": 7
+    },
+    "TRMET": {
+        "avg_target": 159.05,
+        "count": 4
+    },
+    "ENTRA": {
+        "avg_target": 7.967999999999999,
+        "count": 5
+    },
+    "AYDEM": {
+        "avg_target": 42.474999999999994,
+        "count": 4
+    },
+    "AEFES": {
+        "avg_target": 25.3,
+        "count": 10
+    },
+    "ISGYO": {
+        "avg_target": 26.78,
+        "count": 7
+    },
+    "AVPGY": {
+        "avg_target": 93.31833333333334,
+        "count": 6
+    },
+    "AKGRT": {
+        "avg_target": 10.841999999999999,
+        "count": 10
+    },
+    "ANSGR": {
+        "avg_target": 42.074999999999996,
+        "count": 14
+    },
+    "TURSG": {
+        "avg_target": 9.843124999999999,
+        "count": 16
+    },
+    "AKSA": {
+        "avg_target": 14.727500000000001,
+        "count": 4
+    },
+    "KBORU": {
+        "avg_target": 48.86,
+        "count": 1
+    },
+    "VESTL": {
+        "avg_target": 33.25,
+        "count": 2
+    },
+    "VESBE": {
+        "avg_target": 11.356666666666667,
+        "count": 3
+    },
+    "ORGE": {
+        "avg_target": 153.0,
+        "count": 1
+    },
+    "GLRMK": {
+        "avg_target": 288.20666666666665,
+        "count": 6
+    },
+    "OTKAR": {
+        "avg_target": 596.4,
+        "count": 10
+    },
+    "AGESA": {
+        "avg_target": 339.1128571428572,
+        "count": 7
+    },
+    "BESLR": {
+        "avg_target": 22.54,
+        "count": 1
+    },
+    "GRTHO": {
+        "avg_target": 359.5,
+        "count": 1
+    },
+    "YYLGD": {
+        "avg_target": 19.14,
+        "count": 1
+    },
+    "TKFEN": {
+        "avg_target": 102.7,
+        "count": 2
+    },
+    "EUPWR": {
+        "avg_target": 120.55,
+        "count": 2
+    },
+    "GESAN": {
+        "avg_target": 130.5,
+        "count": 2
+    },
+    "KLKIM": {
+        "avg_target": 57.0525,
+        "count": 8
+    },
+    "ANHYT": {
+        "avg_target": 172.58555555555554,
+        "count": 9
+    },
+    "INDES": {
+        "avg_target": 13.843333333333335,
+        "count": 6
+    },
+    "HTTBT": {
+        "avg_target": 67.84714285714286,
+        "count": 7
+    },
+    "BORSK": {
+        "avg_target": 9.989999999999998,
+        "count": 2
+    },
+    "QNBTR": {
+        "avg_target": 338.0,
+        "count": 1
+    },
+    "HRKET": {
+        "avg_target": 142.7,
+        "count": 1
+    },
+    "LKMNH": {
+        "avg_target": 25.900000000000002,
+        "count": 4
+    },
+    "YEOTK": {
+        "avg_target": 173.5,
+        "count": 1
+    },
+    "LILAK": {
+        "avg_target": 53.14000000000001,
+        "count": 3
+    },
+    "KARSN": {
+        "avg_target": 18.53,
+        "count": 1
+    },
+    "KMPUR": {
+        "avg_target": 24.47,
+        "count": 2
+    },
+    "SMRTG": {
+        "avg_target": 18.77,
+        "count": 1
+    },
+    "OFSYM": {
+        "avg_target": 70.65,
+        "count": 2
+    },
+    "TATEN": {
+        "avg_target": 22.2,
+        "count": 3
+    },
+    "ISMEN": {
+        "avg_target": 66.43333333333334,
+        "count": 3
+    },
+    "ALKIM": {
+        "avg_target": 23.0,
+        "count": 1
+    },
+    "GEDZA": {
+        "avg_target": 56.6,
+        "count": 1
+    },
+    "UNLU": {
+        "avg_target": 18.5,
+        "count": 1
+    },
+    "MEDTR": {
+        "avg_target": 42.75,
+        "count": 2
+    },
+    "AZTEK": {
+        "avg_target": 6.0,
+        "count": 1
+    },
+    "AYGAZ": {
+        "avg_target": 312.6222222222222,
+        "count": 9
+    },
+    "TNZTP": {
+        "avg_target": 44.0,
+        "count": 1
+    },
+    "BIZIM": {
+        "avg_target": 36.0,
+        "count": 3
+    },
+    "AKFYE": {
+        "avg_target": 27.5,
+        "count": 2
+    },
+    "ARMGD": {
+        "avg_target": 84.74,
+        "count": 2
+    },
+    "HEKTS": {
+        "avg_target": 4.3,
+        "count": 1
+    },
+    "KAREL": {
+        "avg_target": 17.0,
+        "count": 2
+    },
+    "ENJSA": {
+        "avg_target": 135.35399999999998,
+        "count": 10
+    },
+    "LMKDC": {
+        "avg_target": 40.739999999999995,
+        "count": 2
+    },
+    "EBEBK": {
+        "avg_target": 104.24000000000001,
+        "count": 5
+    },
+    "BIGCH": {
+        "avg_target": 17.740000000000002,
+        "count": 2
+    },
+    "ISDMR": {
+        "avg_target": 68.2,
+        "count": 1
+    },
+    "KORDS": {
+        "avg_target": 71.76666666666667,
+        "count": 3
+    },
+    "ISFIN": {
+        "avg_target": 33.22,
+        "count": 2
+    },
+    "GLCVY": {
+        "avg_target": 113.8175,
+        "count": 4
+    },
+    "MOGAN": {
+        "avg_target": 16.6,
+        "count": 1
+    },
+    "BALSU": {
+        "avg_target": 22.4,
+        "count": 1
+    },
+    "ATAKP": {
+        "avg_target": 69.05,
+        "count": 1
+    },
+    "AKSGY": {
+        "avg_target": 13.015,
+        "count": 2
+    },
+    "DOCO": {
+        "avg_target": 12500.0,
+        "count": 1
+    },
+    "HOROZ": {
+        "avg_target": 72.0,
+        "count": 1
+    },
+    "GOODY": {
+        "avg_target": 3.27,
+        "count": 1
+    },
+    "NTGAZ": {
+        "avg_target": 16.58,
+        "count": 1
+    },
+    "ALFAS": {
+        "avg_target": 64.4,
+        "count": 1
+    },
+    "ONCSM": {
+        "avg_target": 379.6,
+        "count": 1
+    },
+    "MACKO": {
+        "avg_target": 69.85499999999999,
+        "count": 2
+    },
+    "SUNTK": {
+        "avg_target": 45.0,
+        "count": 1
+    },
+    "RYGYO": {
+        "avg_target": 31.23,
+        "count": 2
+    },
+    "OZKGY": {
+        "avg_target": 22.175,
+        "count": 2
+    },
+    "TRCAS": {
+        "avg_target": 88.0,
+        "count": 1
+    },
+    "CWENE": {
+        "avg_target": 44.85,
+        "count": 1
+    },
+    "ALGYO": {
+        "avg_target": 6.17,
+        "count": 2
+    },
+    "PSGYO": {
+        "avg_target": 5.7,
+        "count": 1
+    },
+    "PATEK": {
+        "avg_target": 51.9,
+        "count": 1
+    },
+    "IZENR": {
+        "avg_target": 16.6,
+        "count": 1
+    },
+    "EUREN": {
+        "avg_target": 15.1,
+        "count": 1
+    },
+    "ALKLC": {
+        "avg_target": 155.13,
+        "count": 1
+    },
+    "HLGYO": {
+        "avg_target": 5.89,
+        "count": 1
+    },
+    "VKGYO": {
+        "avg_target": 4.05,
+        "count": 1
+    },
+    "AFYON": {
+        "avg_target": 19.64,
+        "count": 1
+    },
+    "SNGYO": {
+        "avg_target": 10.51,
+        "count": 1
+    },
+    "GOKNR": {
+        "avg_target": 36.11,
+        "count": 1
+    },
+    "MRGYO": {
+        "avg_target": 4.2,
+        "count": 1
+    },
+    "BOBET": {
+        "avg_target": 41.0,
+        "count": 1
+    },
+    "BUCIM": {
+        "avg_target": 9.4,
+        "count": 1
+    },
+    "DGNMO": {
+        "avg_target": 10.55,
+        "count": 1
+    },
+    "KTLEV": {
+        "avg_target": 11.0,
+        "count": 1
+    }
+}
