@@ -39,6 +39,24 @@ def load_env_watchlists():
             watchlists[str(i)] = {"name": name, "tickers": tickers}
     return watchlists
 
+PORTFOLIO_COSTS_FILE = "portfolio_costs.json"
+
+def load_portfolio_costs():
+    if os.path.exists(PORTFOLIO_COSTS_FILE):
+        try:
+            with open(PORTFOLIO_COSTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_portfolio_costs(costs):
+    try:
+        with open(PORTFOLIO_COSTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(costs, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        st.error(f"Maliyetler kaydedilemedi: {e}")
+
 def render_lightweight_chart(ticker, data_json, container_id):
     """Generates the HTML for a TradingView Lightweight Chart using provided OHLC data."""
     return f"""
@@ -705,7 +723,7 @@ if st.session_state.raw_data is not None:
     styled_df = styled_df.format(present_formats)
 
     # --- Tabs for Table and Grid View ---
-    tab1, tab2, tab3 = st.tabs(["📊 Tablo Görünümü", "🔍 Hisse Detay (Drill-down)", "🖼️ Grafik Görünümü (Grid)"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Tablo Görünümü", "🔍 Hisse Detay (Drill-down)", "🖼️ Grafik Görünümü (Grid)", "🔄 Portföy Satış & Swing Asistanı"])
     
     with tab1:
         st.dataframe(
@@ -1112,4 +1130,199 @@ if st.session_state.raw_data is not None:
                                         st.caption(f"{ticker} için son 6 ayda fiyat verisi bulunamadı.")
                                 else:
                                     st.caption(f"{ticker} verisi çekilemedi (yfinance).")
+
+    with tab4:
+        st.markdown("### 🔄 Portföy Satış & Swing Asistanı")
+        st.caption("Bu panel, her %10'luk yükselişte elinizdeki hissenin 1/5'ini satmanızı ve düzeltmelerde desteklerden geri koymanızı tavsiye eden Swing/Grid stratejisini izler.")
+        
+        # 1. Load existing costs
+        costs = load_portfolio_costs()
+        
+        # Ensure all PORTFOLIO_TICKERS exist in costs, default to 0.0
+        for t in portfolio_tickers:
+            if t not in costs:
+                costs[t] = 0.0
+                
+        # 2. Maliyet Girişi ve Düzenleme Arayüzü (st.data_editor)
+        st.markdown("#### 💵 Ortalama Maliyetlerinizi Girin")
+        st.caption("Portföy hisselerinizin ortalama alış maliyetlerini girerek 'Maliyetleri Kaydet' butonuna basın. Maliyeti 0 olan hisseler analiz edilmez.")
+        
+        cost_rows = []
+        for t in portfolio_tickers:
+            cost_val = costs.get(t, 0.0)
+            ticker_row = df_calc[df_calc['Kod'] == t]
+            current_price = ticker_row.iloc[0]['Kapanış (TL)'] if not ticker_row.empty else np.nan
+            cost_rows.append({
+                "Hisse": t,
+                "Ortalama Maliyet (TL)": float(cost_val),
+                "Güncel Fiyat (TL)": float(current_price) if pd.notna(current_price) else 0.0
+            })
+        cost_df = pd.DataFrame(cost_rows)
+        
+        edited_df = st.data_editor(
+            cost_df,
+            column_config={
+                "Hisse": st.column_config.TextColumn("Hisse", disabled=True),
+                "Ortalama Maliyet (TL)": st.column_config.NumberColumn("Ortalama Alış Maliyeti (TL)", min_value=0.0, format="%.2f"),
+                "Güncel Fiyat (TL)": st.column_config.NumberColumn("Son Fiyat (TL)", disabled=True, format="%.2f")
+            },
+            disabled=["Hisse", "Güncel Fiyat (TL)"],
+            hide_index=True,
+            use_container_width=True,
+            key="cost_data_editor"
+        )
+        
+        if st.button("💾 Maliyetleri Kaydet", key="save_costs_btn"):
+            new_costs = {}
+            for _, row in edited_df.iterrows():
+                new_costs[row["Hisse"]] = float(row["Ortalama Maliyet (TL)"])
+            save_portfolio_costs(new_costs)
+            st.success("Maliyetler başarıyla portfolio_costs.json dosyasına kaydedildi!")
+            st.rerun()
+
+        # 3. Hesaplama ve Sinyallerin Listelenmesi
+        st.markdown("---")
+        st.markdown("#### 🚨 Portföy Swing & Kar Al Sinyalleri")
+        
+        active_costs = load_portfolio_costs()
+        analysis_rows = []
+        
+        total_investment = 0.0
+        total_current_value = 0.0
+        active_alerts_count = 0
+        
+        for t in portfolio_tickers:
+            buy_price = active_costs.get(t, 0.0)
+            if not buy_price or buy_price <= 0.0:
+                continue
+                
+            ticker_row = df_calc[df_calc['Kod'] == t]
+            if ticker_row.empty:
+                continue
+                
+            row = ticker_row.iloc[0]
+            current_price = float(row['Kapanış (TL)'])
+            rsi = float(row['RSI (14)']) if pd.notna(row['RSI (14)']) else np.nan
+            ma50 = float(row['MA50']) if pd.notna(row['MA50']) else np.nan
+            
+            gain_pct = ((current_price - buy_price) / buy_price) * 100
+            
+            # Sums
+            total_investment += buy_price
+            total_current_value += current_price
+            
+            # Targets
+            tp1 = buy_price * 1.10
+            tp2 = buy_price * 1.20
+            tp3 = buy_price * 1.30
+            
+            status = "Sakin / Bekle"
+            rec = "Trendi izlemeye devam edin."
+            
+            if gain_pct <= -5.0:
+                status = "🚨 STOP LOSS"
+                rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Disiplinli çıkış düşünülebilir."
+                active_alerts_count += 1
+            elif gain_pct >= 30.0:
+                status = "🎯 TP3 HEDEFİ"
+                rec = "Kâr Al 3 bölgesi (+%30). Pozisyonun 5'te 1'ini (veya kalanını) satabilirsiniz."
+                active_alerts_count += 1
+            elif gain_pct >= 20.0:
+                status = "🎯 TP2 HEDEFİ"
+                rec = "Kâr Al 2 bölgesi (+%20). Pozisyonun 5'te 1'ini satarak kârı kilitleyin."
+                active_alerts_count += 1
+            elif gain_pct >= 10.0:
+                status = "🎯 TP1 HEDEFİ"
+                rec = "Kâr Al 1 bölgesi (+%10). Pozisyonun 5'te 1'ini satarak nakit yaratın."
+                active_alerts_count += 1
+            elif gain_pct >= 15.0:
+                status = "🛡️ BAŞABAŞ"
+                rec = f"Hisse %{gain_pct:.1f} kârda. Stop seviyenizi maliyetiniz olan ₺{buy_price:.2f}'ye çekin."
+                active_alerts_count += 1
+                
+            # Geri alım kontrolü
+            if gain_pct < 10.0 and gain_pct > -3.0:
+                if pd.notna(ma50) and abs((current_price - ma50) / ma50 * 100) <= 3.0:
+                    status = "🔄 DESTEKTE"
+                    rec = f"Fiyat SMA50 desteğine (₺{ma50:.2f}) yaklaştı. Kâr alımları ile sattığınız lotları geri koyabilirsiniz."
+                    active_alerts_count += 1
+                elif abs((current_price - buy_price) / buy_price * 100) <= 3.0:
+                    status = "🔄 MALİYETTE"
+                    rec = "Fiyat maliyet seviyenize (₺{buy_price:.2f}) geri çekildi. Swing geri alımı için değerlendirilebilir."
+                    active_alerts_count += 1
+            
+            analysis_rows.append({
+                "Hisse": t,
+                "Maliyet (₺)": buy_price,
+                "Son Fiyat (₺)": current_price,
+                "Kâr/Zarar (%)": gain_pct,
+                "TP1 (+10%)": tp1,
+                "TP2 (+20%)": tp2,
+                "TP3 (+30%)": tp3,
+                "RSI (14)": rsi,
+                "SMA50 (₺)": ma50,
+                "Öneri / Durum": status,
+                "Açıklama / Aksiyon": rec
+            })
+            
+        if analysis_rows:
+            analysis_df = pd.DataFrame(analysis_rows)
+            
+            # Portföy Özet Metrikleri
+            m_col1, m_col2, m_col3 = st.columns(3)
+            with m_col1:
+                if total_investment > 0:
+                    port_gain_pct = ((total_current_value - total_investment) / total_investment) * 100
+                    st.metric("📊 Ortalama Portföy Getirisi", f"%{port_gain_pct:.2f}", delta=f"{port_gain_pct:+.2f}%")
+                else:
+                    st.metric("📊 Ortalama Portföy Getirisi", "-")
+            with m_col2:
+                st.metric("🔔 Aktif Alarm Sayısı", f"{active_alerts_count} adet")
+            with m_col3:
+                st.metric("🏠 Portföydeki Hisse Sayısı", f"{len(analysis_rows)} Hisse")
+                
+            def style_status(val):
+                if val == "🚨 STOP LOSS":
+                    return "background-color: rgba(228, 50, 99, 0.2); color: #E43263; font-weight: bold;"
+                elif "TP" in str(val):
+                    return "background-color: rgba(46, 125, 50, 0.2); color: #2E7D32; font-weight: bold;"
+                elif "🔄" in str(val):
+                    return "background-color: rgba(33, 150, 243, 0.2); color: #2196F3; font-weight: bold;"
+                elif "🛡️" in str(val):
+                    return "background-color: rgba(240, 158, 63, 0.2); color: #F09E3F; font-weight: bold;"
+                return "color: gray;"
+
+            df_styled = analysis_df.style.map(style_status, subset=["Öneri / Durum"]).format({
+                "Maliyet (₺)": "₺{:.2f}",
+                "Son Fiyat (₺)": "₺{:.2f}",
+                "Kâr/Zarar (%)": "{:+.2f}%",
+                "TP1 (+10%)": "₺{:.2f}",
+                "TP2 (+20%)": "₺{:.2f}",
+                "TP3 (+30%)": "₺{:.2f}",
+                "RSI (14)": "{:.1f}",
+                "SMA50 (₺)": "₺{:.2f}"
+            }, na_rep="-")
+            
+            st.dataframe(
+                df_styled,
+                use_container_width=True,
+                height=450
+            )
+        else:
+            st.warning("Maliyeti girilmiş herhangi bir portföy hisseniz bulunmuyor. Lütfen yukarıdaki tablodan maliyetlerinizi kaydedin.")
+            
+        st.markdown(
+            """
+            <div style="background-color: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 20px;">
+                <h5 style="color: #F09E3F; margin-top: 0;">📘 Swing/Grid Satış Stratejisi Nasıl Uygulanır?</h5>
+                <ol style="font-size: 14px; line-height: 1.6; color: #ccc;">
+                    <li><b>Kademeli Kâr Al (TP1/TP2/TP3):</b> Hisse maliyetinizden sırasıyla %10, %20 ve %30 yükseldiğinde, elinizdeki toplam lot miktarının 5'te 1'ini (%20) satın.</li>
+                    <li><b>Riski Sıfırlama (Breakeven):</b> Hisse %15 kâra ulaştığı an, kalan pozisyon için stop seviyenizi <b>maliyet fiyatınıza</b> çekin. Hisse düşse bile zarar etmezsiniz.</li>
+                    <li><b>Düzeltmede Geri Alım (Swing Rebuy):</b> Kâr realizasyonu ile sattığınız lotları geri koymak için fiyatın <b>maliyet seviyesine</b> veya <b>SMA50 (50 Günlük Basit Hareketli Ortalama)</b> desteğine geri çekilmesini bekleyin. Desteğe değdiğinde ve yukarı tepki verdiğinde sattığınız miktar kadar geri ekleyin.</li>
+                    <li><b>Zarar Durdur (Stop Loss):</b> Hisse maliyetinizden %5-7 civarı düşerse pozisyonu disiplinli bir şekilde kapatın.</li>
+                </ol>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     
