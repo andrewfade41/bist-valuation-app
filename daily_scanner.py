@@ -261,6 +261,36 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             port_gain = ((total_cur - total_inv) / total_inv) * 100
             port_gain_str = f"{port_gain:+.2f}%"
 
+        # Helper to find weak reasons for low operational score
+        def get_weak_ratios(row):
+            reasons = []
+            favok_grow = row.get('FAVÖK Yıllık Büyüme (%)')
+            net_profit_grow = row.get('Net Kar Yıllık Büyüme (%)')
+            brut_marj = row.get('Brüt Marj (%)')
+            favok_marj = row.get('FAVÖK Marjı (%)')
+            net_marj = row.get('Net Kar Marjı (%)')
+            net_debt = row.get('Net Borç')
+            cari_oran = row.get('Cari Oran')
+            de_ratio = row.get('Borç/Özkaynak')
+            
+            if pd.isna(favok_grow) or float(favok_grow) <= 0:
+                reasons.append("Negatif FAVÖK Büyümesi")
+            if pd.isna(net_profit_grow) or float(net_profit_grow) <= 0:
+                reasons.append("Negatif Net Kâr Büyümesi")
+            if pd.isna(brut_marj) or float(brut_marj) <= 0:
+                reasons.append("Düşük Brüt Marj")
+            if pd.isna(favok_marj) or float(favok_marj) <= 0:
+                reasons.append("Düşük FAVÖK Marjı")
+            if pd.isna(net_marj) or float(net_marj) <= 0:
+                reasons.append("Düşük Net Kâr Marjı")
+            if pd.notna(net_debt) and float(net_debt) > 0:
+                reasons.append("Yüksek Net Borç")
+            if pd.isna(cari_oran) or float(cari_oran) < 1.5:
+                reasons.append("Düşük Cari Oran")
+            if pd.notna(de_ratio) and float(de_ratio) > 1.5:
+                reasons.append("Yüksek Borç/Özkaynak")
+            return reasons
+
         # Determine switch suggestions
         sell_candidates = []
         for ticker, buy_price in costs.items():
@@ -281,7 +311,9 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             if pot_return < 15.0:
                 reasons.append(f"Kalan Potansiyel Düşük (+%{pot_return:.1f})")
             if op_score < 4:
-                reasons.append(f"Zayıf Rasyolar (Skor: {op_score}/10)")
+                weak_list = get_weak_ratios(row)
+                weak_str = f" ({', '.join(weak_list[:3])})" if weak_list else ""
+                reasons.append(f"Zayıf Rasyolar (Skor: {op_score}/10{weak_str})")
                 
             if reasons:
                 sell_candidates.append({
@@ -299,12 +331,20 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             ].copy()
             if not strong_outside.empty:
                 strong_outside = strong_outside.sort_values(by='Potansiyel Getiri (%)', ascending=False)
-                for _, row in strong_outside.head(5).iterrows():
+                seen_sectors = set()
+                for _, row in strong_outside.iterrows():
+                    sector = row.get('Sektör', 'Bilinmeyen')
+                    if sector in seen_sectors:
+                        continue
+                    seen_sectors.add(sector)
                     buy_candidates.append({
                         "Hisse": row['Kod'],
                         "Potansiyel (%)": float(row['Potansiyel Getiri (%)']),
-                        "Skor": int(row['Operasyonel Skor'])
+                        "Skor": int(row['Operasyonel Skor']),
+                        "Sektör": sector
                     })
+                    if len(buy_candidates) >= 5:
+                        break
                     
         switch_html = ""
         if sell_candidates and buy_candidates:
@@ -315,7 +355,7 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
                 <tr style="border-bottom: 1px solid #eee; font-size: 13px;">
                   <td style="padding: 10px; color: #E43263;"><b>{s['Hisse']} Sat</b> ({s['Neden']})</td>
                   <td style="padding: 10px; text-align: center; color: #F09E3F; font-weight: bold;">➡️</td>
-                  <td style="padding: 10px; color: #2E7D32;"><b>{match['Hisse']} Al</b> (Pot.: +{match['Potansiyel (%)']:.1f}% | Skor: {match['Skor']}/10)</td>
+                  <td style="padding: 10px; color: #2E7D32;"><b>{match['Hisse']} Al</b> (Pot.: +{match['Potansiyel (%)']:.1f}% | Skor: {match['Skor']}/10 | {match['Sektör']})</td>
                 </tr>
                 """
             

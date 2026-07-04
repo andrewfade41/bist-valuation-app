@@ -1364,6 +1364,36 @@ if st.session_state.raw_data is not None:
             st.markdown("#### 🔄 Aktif Portföy Takas (Switch) Önerileri")
             st.caption("Hedefine ulaşmış veya finansalları zayıflamış portföy hisselerinizi satıp, dışarıdaki daha kârlı ve yüksek potansiyelli fırsat hisselerine geçmeyi değerlendirebilirsiniz.")
             
+            # Helper to find weak reasons for low operational score
+            def get_weak_ratios(row):
+                reasons = []
+                favok_grow = row.get('FAVÖK Yıllık Büyüme (%)')
+                net_profit_grow = row.get('Net Kar Yıllık Büyüme (%)')
+                brut_marj = row.get('Brüt Marj (%)')
+                favok_marj = row.get('FAVÖK Marjı (%)')
+                net_marj = row.get('Net Kar Marjı (%)')
+                net_debt = row.get('Net Borç')
+                cari_oran = row.get('Cari Oran')
+                de_ratio = row.get('Borç/Özkaynak')
+                
+                if pd.isna(favok_grow) or float(favok_grow) <= 0:
+                    reasons.append("Negatif FAVÖK Büyümesi")
+                if pd.isna(net_profit_grow) or float(net_profit_grow) <= 0:
+                    reasons.append("Negatif Net Kâr Büyümesi")
+                if pd.isna(brut_marj) or float(brut_marj) <= 0:
+                    reasons.append("Düşük Brüt Marj")
+                if pd.isna(favok_marj) or float(favok_marj) <= 0:
+                    reasons.append("Düşük FAVÖK Marjı")
+                if pd.isna(net_marj) or float(net_marj) <= 0:
+                    reasons.append("Düşük Net Kâr Marjı")
+                if pd.notna(net_debt) and float(net_debt) > 0:
+                    reasons.append("Yüksek Net Borç")
+                if pd.isna(cari_oran) or float(cari_oran) < 1.5:
+                    reasons.append("Düşük Cari Oran")
+                if pd.notna(de_ratio) and float(de_ratio) > 1.5:
+                    reasons.append("Yüksek Borç/Özkaynak")
+                return reasons
+
             # Identify sell candidates from portfolio
             sell_candidates = []
             for t in portfolio_tickers:
@@ -1385,7 +1415,9 @@ if st.session_state.raw_data is not None:
                 if pot_return < 15.0:
                     reasons.append(f"Kalan Potansiyel Düşük (+%{pot_return:.1f})")
                 if op_score < 4:
-                    reasons.append(f"Zayıf Temel Rasyolar (Skor: {op_score}/10)")
+                    weak_list = get_weak_ratios(row)
+                    weak_str = f" ({', '.join(weak_list[:3])})" if weak_list else ""
+                    reasons.append(f"Zayıf Temel Rasyolar (Skor: {op_score}/10{weak_str})")
                     
                 if reasons:
                     sell_candidates.append({
@@ -1397,7 +1429,7 @@ if st.session_state.raw_data is not None:
                         "Neden": " ve ".join(reasons)
                     })
             
-            # Identify buy candidates from outside
+            # Identify buy candidates from outside, ensuring only 1 stock per sector
             outside_df = df_calc[~df_calc['Kod'].isin(portfolio_tickers)]
             buy_candidates = []
             if not outside_df.empty:
@@ -1408,13 +1440,21 @@ if st.session_state.raw_data is not None:
                 ].copy()
                 if not strong_outside.empty:
                     strong_outside = strong_outside.sort_values(by='Potansiyel Getiri (%)', ascending=False)
-                    for _, row in strong_outside.head(5).iterrows():
+                    seen_sectors = set()
+                    for _, row in strong_outside.iterrows():
+                        sector = row.get('Sektör', 'Bilinmeyen')
+                        if sector in seen_sectors:
+                            continue
+                        seen_sectors.add(sector)
                         buy_candidates.append({
                             "Hisse": row['Kod'],
                             "Fiyat": float(row['Kapanış (TL)']),
                             "Potansiyel (%)": float(row['Potansiyel Getiri (%)']),
-                            "Skor": int(row['Operasyonel Skor'])
+                            "Skor": int(row['Operasyonel Skor']),
+                            "Sektör": sector
                         })
+                        if len(buy_candidates) >= 5:
+                            break
             
             # Display suggestions
             if sell_candidates and buy_candidates:
@@ -1440,7 +1480,7 @@ if st.session_state.raw_data is not None:
                         st.markdown(
                             f"""
                             <div style="background-color: rgba(46, 125, 50, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(46, 125, 50, 0.2); margin-bottom: 10px;">
-                                <b style="color: #2E7D32; font-size: 15px;">{b['Hisse']}</b> (Fiyat: ₺{b['Fiyat']:.2f})<br/>
+                                <b style="color: #2E7D32; font-size: 15px;">{b['Hisse']}</b> (Fiyat: ₺{b['Fiyat']:.2f} | Sektör: {b['Sektör']})<br/>
                                 <span style="font-size: 13px; color: #ccc;">
                                     <b>Getiri Potansiyeli:</b> +{b['Potansiyel (%)']:.1f}% | <b>Operasyonel Skor:</b> {b['Skor']}/10
                                 </span>
@@ -1464,7 +1504,7 @@ if st.session_state.raw_data is not None:
                             <div style="font-size: 24px; color: #F09E3F; padding: 0 20px;">➡️</div>
                             <div style="flex: 1; text-align: right;">
                                 <span style="color: #2E7D32; font-weight: bold; font-size: 15px;">{match['Hisse']} Al</span> <br/>
-                                <span style="font-size: 12px; color: #aaa;">Pot.: +{match['Potansiyel (%)']:.1f}% (Skor: {match['Skor']}/10)</span>
+                                <span style="font-size: 12px; color: #aaa;">Pot.: +{match['Potansiyel (%)']:.1f}% (Skor: {match['Skor']}/10 | {match['Sektör']})</span>
                             </div>
                         </div>
                         """,
