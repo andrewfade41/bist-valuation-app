@@ -114,9 +114,136 @@ def get_discovery_highlights(candidates, rsi_df, div_signals):
     return highlights
 
 def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None, portfolio_sentiment=None, discovery_highlights=None):
+    # 1. Load Portfolio Costs and Calculate Status for Email Header
+    costs_file = "portfolio_costs.json"
+    costs = {}
+    if os.path.exists(costs_file):
+        try:
+            with open(costs_file, 'r', encoding='utf-8') as f:
+                costs = json.load(f)
+        except Exception:
+            pass
+
+    portfolio_html = ""
+    if costs:
+        portfolio_rows_html = ""
+        total_inv = 0.0
+        total_cur = 0.0
+        alert_count = 0
+        
+        for ticker, buy_price in costs.items():
+            if not buy_price or buy_price <= 0.0:
+                continue
+            
+            ticker_data = df_calc[df_calc['Kod'] == ticker]
+            if ticker_data.empty:
+                continue
+                
+            row = ticker_data.iloc[0]
+            current_price = float(row['Kapanış (TL)'])
+            ma50 = float(row['MA50']) if pd.notna(row['MA50']) else np.nan
+            rsi = float(row['RSI (14)']) if pd.notna(row['RSI (14)']) else np.nan
+            
+            gain_pct = ((current_price - buy_price) / buy_price) * 100
+            
+            total_inv += buy_price
+            total_cur += current_price
+            
+            tp1 = buy_price * 1.10
+            tp2 = buy_price * 1.20
+            tp3 = buy_price * 1.30
+            
+            status = "Sakin / Bekle"
+            status_color = "#777"
+            rec = "Trendi izleyin."
+            
+            if gain_pct <= -5.0:
+                status = "🚨 STOP LOSS"
+                status_color = "#E43263"
+                rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Çıkış düşünülebilir."
+                alert_count += 1
+            elif gain_pct >= 30.0:
+                status = "🎯 TP3 HEDEFİ"
+                status_color = "#2E7D32"
+                rec = "Kâr Al 3 bölgesi (+%30). 5'te 1 satabilirsiniz."
+                alert_count += 1
+            elif gain_pct >= 20.0:
+                status = "🎯 TP2 HEDEFİ"
+                status_color = "#2E7D32"
+                rec = "Kâr Al 2 bölgesi (+%20). 5'te 1 satarak kâr kilitleyin."
+                alert_count += 1
+            elif gain_pct >= 10.0:
+                status = "🎯 TP1 HEDEFİ"
+                status_color = "#2E7D32"
+                rec = "Kâr Al 1 bölgesi (+%10). 5'te 1 satarak nakit yaratın."
+                alert_count += 1
+            elif gain_pct >= 15.0:
+                status = "🛡️ BAŞABAŞ"
+                status_color = "#F09E3F"
+                rec = f"Stopu maliyet olan ₺{buy_price:.2f}'ye çekin."
+                alert_count += 1
+                
+            if gain_pct < 10.0 and gain_pct > -3.0:
+                if pd.notna(ma50) and abs((current_price - ma50) / ma50 * 100) <= 3.0:
+                    status = "🔄 DESTEKTE"
+                    rec = f"SMA50 (₺{ma50:.2f}) desteğinde. Geri alım yapabilirsiniz."
+                    status_color = "#2196F3"
+                    alert_count += 1
+                elif abs((current_price - buy_price) / buy_price * 100) <= 3.0:
+                    status = "🔄 MALİYETTE"
+                    rec = "Maliyet seviyesine geri çekildi. Swing eklemesi yapılabilir."
+                    status_color = "#2196F3"
+                    alert_count += 1
+
+            portfolio_rows_html += f"""
+            <tr style="border-bottom: 1px solid #ddd; font-size: 13px;">
+              <td style="padding: 10px;"><b>{ticker}</b></td>
+              <td style="padding: 10px;">₺{buy_price:.2f}</td>
+              <td style="padding: 10px;">₺{current_price:.2f}</td>
+              <td style="padding: 10px; color: {'green' if gain_pct >= 0 else 'red'}; font-weight: bold;">{gain_pct:+.2f}%</td>
+              <td style="padding: 10px; color: {status_color}; font-weight: bold;">{status}</td>
+              <td style="padding: 10px; font-size: 12px; color: #555;">{rec}</td>
+              <td style="padding: 10px; color: #555;">{f'{rsi:.1f}' if pd.notna(rsi) else '-'}</td>
+            </tr>
+            """
+            
+        port_gain_str = "-"
+        if total_inv > 0:
+            port_gain = ((total_cur - total_inv) / total_inv) * 100
+            port_gain_str = f"{port_gain:+.2f}%"
+
+        portfolio_html = f"""
+        <div style="background-color: #f7f9fc; border: 2px solid #5A1F8A; border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: Arial, sans-serif;">
+          <h2 style="color: #5A1F8A; margin-top: 0; display: flex; align-items: center; gap: 8px;">
+            🔄 Portföy Satış & Swing Asistanı Raporu
+          </h2>
+          <p style="font-size: 14px; margin-bottom: 15px;">
+            Toplam Getiri: <b>{port_gain_str}</b> | Aktif Uyarılı Hisse: <b>{alert_count}</b>
+          </p>
+          
+          <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid #5A1F8A; font-size: 13px; color: #5A1F8A;">
+                <th style="padding: 8px 10px;">Hisse</th>
+                <th style="padding: 8px 10px;">Maliyet</th>
+                <th style="padding: 8px 10px;">Son Fiyat</th>
+                <th style="padding: 8px 10px;">Getiri (%)</th>
+                <th style="padding: 8px 10px;">Durum</th>
+                <th style="padding: 8px 10px;">Öneri / Aksiyon</th>
+                <th style="padding: 8px 10px;">RSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {portfolio_rows_html}
+            </tbody>
+          </table>
+        </div>
+        """
+
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
+        {portfolio_html}
     """
     
     if discovery_highlights:
