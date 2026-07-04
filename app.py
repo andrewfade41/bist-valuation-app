@@ -1242,10 +1242,20 @@ if st.session_state.raw_data is not None:
             pot_return = row.get('Potansiyel Getiri (%)', 0)
             net_debt = row.get('Net Borç', 0)
             de_ratio = row.get('Borç/Özkaynak', 0)
+            sector = row.get('Sektör', '')
+            
+            # Banks/Financials do not have industrial margins (EBITDA / Gross Margin) and hold customer deposits (positive Net Debt)
+            is_bank_or_financial = (sector == 'Bankacılık') or (pd.isna(row.get('FAVÖK Marjı (%)')) and pd.isna(row.get('Brüt Marj (%)')))
             
             # Check conditions
-            is_avg_down_candidate = (op_score >= 6) and (pot_return > 40.0) and (pd.notna(net_debt) and net_debt < 0)
-            is_strict_stop_candidate = (op_score < 4) or (pd.notna(de_ratio) and de_ratio > 1.5) or (pot_return < 15.0)
+            if is_bank_or_financial:
+                # Use Graham Score and potential for banks
+                graham_score = row.get('Graham Skoru', 0)
+                is_avg_down_candidate = (pot_return > 40.0) and (graham_score >= 6)
+                is_strict_stop_candidate = (pot_return < 15.0)
+            else:
+                is_avg_down_candidate = (op_score >= 6) and (pot_return > 40.0) and (pd.notna(net_debt) and net_debt < 0)
+                is_strict_stop_candidate = (op_score < 4) or (pd.notna(de_ratio) and de_ratio > 1.5) or (pot_return < 15.0)
             
             status = "Sakin / Bekle"
             rec = "Trendi izlemeye devam edin."
@@ -1410,11 +1420,14 @@ if st.session_state.raw_data is not None:
                 op_score = int(row.get('Operasyonel Skor', 0))
                 
                 reasons = []
+                sector = row.get('Sektör', '')
+                is_bank_or_financial = (sector == 'Bankacılık') or (pd.isna(row.get('FAVÖK Marjı (%)')) and pd.isna(row.get('Brüt Marj (%)')))
+                
                 if gain_pct >= 25.0:
                     reasons.append(f"Yüksek Kâr Birikimi (+%{gain_pct:.1f})")
                 if pot_return < 15.0:
                     reasons.append(f"Kalan Potansiyel Düşük (+%{pot_return:.1f})")
-                if op_score < 4:
+                if op_score < 4 and not is_bank_or_financial:
                     weak_list = get_weak_ratios(row)
                     weak_str = f" ({', '.join(weak_list[:3])})" if weak_list else ""
                     reasons.append(f"Zayıf Temel Rasyolar (Skor: {op_score}/10{weak_str})")
