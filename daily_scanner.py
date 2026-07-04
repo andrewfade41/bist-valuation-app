@@ -261,6 +261,78 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             port_gain = ((total_cur - total_inv) / total_inv) * 100
             port_gain_str = f"{port_gain:+.2f}%"
 
+        # Determine switch suggestions
+        sell_candidates = []
+        for ticker, buy_price in costs.items():
+            if not buy_price or buy_price <= 0.0:
+                continue
+            ticker_data = df_calc[df_calc['Kod'] == ticker]
+            if ticker_data.empty:
+                continue
+            row = ticker_data.iloc[0]
+            current_price = float(row['Kapanış (TL)'])
+            gain_pct = ((current_price - buy_price) / buy_price) * 100
+            pot_return = float(row.get('Potansiyel Getiri (%)', 0.0))
+            op_score = int(row.get('Operasyonel Skor', 0))
+            
+            reasons = []
+            if gain_pct >= 25.0:
+                reasons.append(f"Yüksek Kâr (+%{gain_pct:.1f})")
+            if pot_return < 15.0:
+                reasons.append(f"Kalan Potansiyel Düşük (+%{pot_return:.1f})")
+            if op_score < 4:
+                reasons.append(f"Zayıf Rasyolar (Skor: {op_score}/10)")
+                
+            if reasons:
+                sell_candidates.append({
+                    "Hisse": ticker,
+                    "Potansiyel (%)": pot_return,
+                    "Neden": " ve ".join(reasons)
+                })
+                
+        outside_df = df_calc[~df_calc['Kod'].isin(list(costs.keys()))]
+        buy_candidates = []
+        if not outside_df.empty:
+            strong_outside = outside_df[
+                (outside_df['Operasyonel Skor'] >= 6) & 
+                (outside_df['Potansiyel Getiri (%)'] >= 40.0)
+            ].copy()
+            if not strong_outside.empty:
+                strong_outside = strong_outside.sort_values(by='Potansiyel Getiri (%)', ascending=False)
+                for _, row in strong_outside.head(5).iterrows():
+                    buy_candidates.append({
+                        "Hisse": row['Kod'],
+                        "Potansiyel (%)": float(row['Potansiyel Getiri (%)']),
+                        "Skor": int(row['Operasyonel Skor'])
+                    })
+                    
+        switch_html = ""
+        if sell_candidates and buy_candidates:
+            switch_rows_html = ""
+            for idx, s in enumerate(sell_candidates):
+                match = buy_candidates[idx % len(buy_candidates)]
+                switch_rows_html += f"""
+                <tr style="border-bottom: 1px solid #eee; font-size: 13px;">
+                  <td style="padding: 10px; color: #E43263;"><b>{s['Hisse']} Sat</b> ({s['Neden']})</td>
+                  <td style="padding: 10px; text-align: center; color: #F09E3F; font-weight: bold;">➡️</td>
+                  <td style="padding: 10px; color: #2E7D32;"><b>{match['Hisse']} Al</b> (Pot.: +{match['Potansiyel (%)']:.1f}% | Skor: {match['Skor']}/10)</td>
+                </tr>
+                """
+            
+            switch_html = f"""
+            <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+              <h4 style="color: #5A1F8A; margin-top: 0;">🔄 Portföy Takas (Switch) Önerileri</h4>
+              <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                Portföyünüzde hedefine yaklaşan veya rasyoları bozulan hisseleri satıp, piyasadaki daha kârlı alternatiflere geçiş yapmayı düşünebilirsiniz:
+              </p>
+              <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                <tbody>
+                  {switch_rows_html}
+                </tbody>
+              </table>
+            </div>
+            """
+
         portfolio_html = f"""
         <div style="background-color: #f7f9fc; border: 2px solid #5A1F8A; border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: Arial, sans-serif;">
           <h2 style="color: #5A1F8A; margin-top: 0; display: flex; align-items: center; gap: 8px;">
@@ -289,6 +361,7 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               {portfolio_rows_html}
             </tbody>
           </table>
+          {switch_html}
         </div>
         """
 

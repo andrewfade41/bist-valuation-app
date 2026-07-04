@@ -1358,6 +1358,120 @@ if st.session_state.raw_data is not None:
                 use_container_width=True,
                 height=450
             )
+
+            # 4. Takas (Switch) Önerileri
+            st.markdown("---")
+            st.markdown("#### 🔄 Aktif Portföy Takas (Switch) Önerileri")
+            st.caption("Hedefine ulaşmış veya finansalları zayıflamış portföy hisselerinizi satıp, dışarıdaki daha kârlı ve yüksek potansiyelli fırsat hisselerine geçmeyi değerlendirebilirsiniz.")
+            
+            # Identify sell candidates from portfolio
+            sell_candidates = []
+            for t in portfolio_tickers:
+                buy_price = active_costs.get(t, 0.0)
+                if not buy_price or buy_price <= 0.0:
+                    continue
+                ticker_row = df_calc[df_calc['Kod'] == t]
+                if ticker_row.empty:
+                    continue
+                row = ticker_row.iloc[0]
+                current_price = float(row['Kapanış (TL)'])
+                gain_pct = ((current_price - buy_price) / buy_price) * 100
+                pot_return = float(row.get('Potansiyel Getiri (%)', 0.0))
+                op_score = int(row.get('Operasyonel Skor', 0))
+                
+                reasons = []
+                if gain_pct >= 25.0:
+                    reasons.append(f"Yüksek Kâr Birikimi (+%{gain_pct:.1f})")
+                if pot_return < 15.0:
+                    reasons.append(f"Kalan Potansiyel Düşük (+%{pot_return:.1f})")
+                if op_score < 4:
+                    reasons.append(f"Zayıf Temel Rasyolar (Skor: {op_score}/10)")
+                    
+                if reasons:
+                    sell_candidates.append({
+                        "Hisse": t,
+                        "Maliyet": buy_price,
+                        "Fiyat": current_price,
+                        "Kâr/Zarar (%)": gain_pct,
+                        "Potansiyel (%)": pot_return,
+                        "Neden": " ve ".join(reasons)
+                    })
+            
+            # Identify buy candidates from outside
+            outside_df = df_calc[~df_calc['Kod'].isin(portfolio_tickers)]
+            buy_candidates = []
+            if not outside_df.empty:
+                # Filter for strong fundamentals
+                strong_outside = outside_df[
+                    (outside_df['Operasyonel Skor'] >= 6) & 
+                    (outside_df['Potansiyel Getiri (%)'] >= 40.0)
+                ].copy()
+                if not strong_outside.empty:
+                    strong_outside = strong_outside.sort_values(by='Potansiyel Getiri (%)', ascending=False)
+                    for _, row in strong_outside.head(5).iterrows():
+                        buy_candidates.append({
+                            "Hisse": row['Kod'],
+                            "Fiyat": float(row['Kapanış (TL)']),
+                            "Potansiyel (%)": float(row['Potansiyel Getiri (%)']),
+                            "Skor": int(row['Operasyonel Skor'])
+                        })
+            
+            # Display suggestions
+            if sell_candidates and buy_candidates:
+                col_sell, col_buy = st.columns(2)
+                with col_sell:
+                    st.markdown("##### 🔻 Çıkış Adayı Portföy Hisseleri")
+                    for s in sell_candidates:
+                        st.markdown(
+                            f"""
+                            <div style="background-color: rgba(228, 50, 99, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(228, 50, 99, 0.2); margin-bottom: 10px;">
+                                <b style="color: #E43263; font-size: 15px;">{s['Hisse']}</b> (Maliyet: ₺{s['Maliyet']:.2f} | Son: ₺{s['Fiyat']:.2f})<br/>
+                                <span style="font-size: 13px; color: #ccc;">
+                                    <b>Kâr/Zarar:</b> {s['Kâr/Zarar (%)']:+.1f}% | <b>Kalan Pot.:</b> {s['Potansiyel (%)']:.1f}%<br/>
+                                    ⚠️ {s['Neden']}
+                                </span>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                with col_buy:
+                    st.markdown("##### 💚 Giriş Adayı Fırsat Hisseleri")
+                    for b in buy_candidates:
+                        st.markdown(
+                            f"""
+                            <div style="background-color: rgba(46, 125, 50, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(46, 125, 50, 0.2); margin-bottom: 10px;">
+                                <b style="color: #2E7D32; font-size: 15px;">{b['Hisse']}</b> (Fiyat: ₺{b['Fiyat']:.2f})<br/>
+                                <span style="font-size: 13px; color: #ccc;">
+                                    <b>Getiri Potansiyeli:</b> +{b['Potansiyel (%)']:.1f}% | <b>Operasyonel Skor:</b> {b['Skor']}/10
+                                </span>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                
+                # Dynamic matching cards
+                st.markdown("##### 🔁 Önerilen Eşleşmeler (Takas Önerileri)")
+                for idx, s in enumerate(sell_candidates):
+                    # Match with the top buy candidates cyclically
+                    match = buy_candidates[idx % len(buy_candidates)]
+                    st.markdown(
+                        f"""
+                        <div style="background-color: rgba(255, 255, 255, 0.05); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                            <div style="flex: 1;">
+                                <span style="color: #E43263; font-weight: bold; font-size: 15px;">{s['Hisse']} Sat</span> <br/>
+                                <span style="font-size: 12px; color: #aaa;">Pot.: {s['Potansiyel (%)']:.1f}%</span>
+                            </div>
+                            <div style="font-size: 24px; color: #F09E3F; padding: 0 20px;">➡️</div>
+                            <div style="flex: 1; text-align: right;">
+                                <span style="color: #2E7D32; font-weight: bold; font-size: 15px;">{match['Hisse']} Al</span> <br/>
+                                <span style="font-size: 12px; color: #aaa;">Pot.: +{match['Potansiyel (%)']:.1f}% (Skor: {match['Skor']}/10)</span>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("Şu an için portföyünüzde kâr realizasyonu veya takas önerilecek kritik bir hisse bulunmuyor.")
         else:
             st.warning("Maliyeti girilmiş herhangi bir portföy hisseniz bulunmuyor. Lütfen yukarıdaki tablodan maliyetlerinizi kaydedin.")
             
