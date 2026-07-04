@@ -1237,13 +1237,36 @@ if st.session_state.raw_data is not None:
             tp2 = buy_price * 1.20
             tp3 = buy_price * 1.30
             
+            # Matrix Rules
+            op_score = row.get('Operasyonel Skor', 0)
+            pot_return = row.get('Potansiyel Getiri (%)', 0)
+            net_debt = row.get('Net Borç', 0)
+            de_ratio = row.get('Borç/Özkaynak', 0)
+            
+            # Check conditions
+            is_avg_down_candidate = (op_score >= 6) and (pot_return > 40.0) and (pd.notna(net_debt) and net_debt < 0)
+            is_strict_stop_candidate = (op_score < 4) or (pd.notna(de_ratio) and de_ratio > 1.5) or (pot_return < 15.0)
+            
             status = "Sakin / Bekle"
             rec = "Trendi izlemeye devam edin."
             
             if gain_pct <= -5.0:
-                status = "🚨 STOP LOSS"
-                rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Disiplinli çıkış düşünülebilir."
-                active_alerts_count += 1
+                if is_strict_stop_candidate:
+                    status = "🚨 ZORUNLU STOP"
+                    rec = f"Zayıf rasyolar / Düşük potansiyel sebebiyle kesinlikle maliyet düşürmeyin. Disiplinli çıkış yapın (%{gain_pct:.1f})."
+                    active_alerts_count += 1
+                elif is_avg_down_candidate:
+                    if gain_pct <= -10.0:
+                        status = "🔄 MALİYET DÜŞÜR"
+                        rec = f"Güçlü şirket (%{gain_pct:.1f}). %10-15 düşüşte veya MA200 desteğinde kademeli ek alım yapabilirsiniz."
+                        active_alerts_count += 1
+                    else:
+                        status = "💪 GÜÇLÜ TUT"
+                        rec = f"Hisse kârlı ve nakit zengini (%{gain_pct:.1f}). Panik yapmadan tutabilirsiniz."
+                else:
+                    status = "🚨 STOP LOSS"
+                    rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Çıkış düşünülebilir."
+                    active_alerts_count += 1
             elif gain_pct >= 30.0:
                 status = "🎯 TP3 HEDEFİ"
                 rec = "Kâr Al 3 bölgesi (+%30). Pozisyonun 5'te 1'ini (veya kalanını) satabilirsiniz."
@@ -1306,9 +1329,9 @@ if st.session_state.raw_data is not None:
                 st.metric("🏠 Portföydeki Hisse Sayısı", f"{len(analysis_rows)} Hisse")
                 
             def style_status(val):
-                if val == "🚨 STOP LOSS":
+                if val in ["🚨 STOP LOSS", "🚨 ZORUNLU STOP"]:
                     return "background-color: rgba(228, 50, 99, 0.2); color: #E43263; font-weight: bold;"
-                elif "TP" in str(val):
+                elif "TP" in str(val) or val == "💪 GÜÇLÜ TUT":
                     return "background-color: rgba(46, 125, 50, 0.2); color: #2E7D32; font-weight: bold;"
                 elif "🔄" in str(val):
                     return "background-color: rgba(33, 150, 243, 0.2); color: #2196F3; font-weight: bold;"

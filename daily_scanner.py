@@ -173,15 +173,41 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             tp2 = buy_price * 1.20
             tp3 = buy_price * 1.30
             
+            # Matrix Rules
+            op_score = row.get('Operasyonel Skor', 0)
+            pot_return = row.get('Potansiyel Getiri (%)', 0)
+            net_debt = row.get('Net Borç', 0)
+            de_ratio = row.get('Borç/Özkaynak', 0)
+            
+            # Check conditions
+            is_avg_down_candidate = (op_score >= 6) and (pot_return > 40.0) and (pd.notna(net_debt) and net_debt < 0)
+            is_strict_stop_candidate = (op_score < 4) or (pd.notna(de_ratio) and de_ratio > 1.5) or (pot_return < 15.0)
+            
             status = "Sakin / Bekle"
             status_color = "#777"
             rec = "Trendi izleyin."
             
             if gain_pct <= -5.0:
-                status = "🚨 STOP LOSS"
-                status_color = "#E43263"
-                rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Çıkış düşünülebilir."
-                alert_count += 1
+                if is_strict_stop_candidate:
+                    status = "🚨 ZORUNLU STOP"
+                    status_color = "#E43263"
+                    rec = f"Zayıf rasyolar / Düşük potansiyel sebebiyle kesinlikle maliyet düşürmeyin. Disiplinli çıkış yapın (%{gain_pct:.1f})."
+                    alert_count += 1
+                elif is_avg_down_candidate:
+                    if gain_pct <= -10.0:
+                        status = "🔄 MALİYET DÜŞÜR"
+                        status_color = "#2196F3"
+                        rec = f"Güçlü şirket (%{gain_pct:.1f}). %10-15 düşüşte veya MA200 desteğinde kademeli ek alım yapabilirsiniz."
+                        alert_count += 1
+                    else:
+                        status = "💪 GÜÇLÜ TUT"
+                        status_color = "#2E7D32"
+                        rec = f"Hisse kârlı ve nakit zengini (%{gain_pct:.1f}). Panik yapmadan tutabilirsiniz."
+                else:
+                    status = "🚨 STOP LOSS"
+                    status_color = "#E43263"
+                    rec = f"Zarar durdur seviyesi aşıldı (%{gain_pct:.1f}). Çıkış düşünülebilir."
+                    alert_count += 1
             elif gain_pct >= 30.0:
                 status = "🎯 TP3 HEDEFİ"
                 status_color = "#2E7D32"
