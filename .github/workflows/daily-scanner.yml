@@ -37,6 +37,7 @@ jobs:
           SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
+          PORTFOLIO_TICKERS: ${{ secrets.PORTFOLIO_TICKERS }}
         run: |
           python daily_scanner.py
 
