@@ -113,7 +113,7 @@ def get_discovery_highlights(candidates, rsi_df, div_signals):
             
     return highlights
 
-def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None, portfolio_sentiment=None, discovery_highlights=None):
+def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_signals=None, bearish_signals=None, portfolio_sentiment=None, discovery_highlights=None, volume_breakouts_df=None):
     # 1. Load Portfolio Costs and Calculate Status for Email Header
     costs_file = "portfolio_costs.json"
     costs = {}
@@ -702,6 +702,47 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             """
         html += "</tbody></table><br>"
     
+    if volume_breakouts_df is not None and not volume_breakouts_df.empty:
+        html += f"""
+        <h2>📈 Hacim Patlaması Yaşayan Hisseler (Hacim > {int(VOLUME_FILTER_MULTIPLIER)}x 60G Ort.)</h2>
+        <p>Aşağıdaki hisselerin günlük işlem hacmi, 60 günlük ortalama hacimlerinin {int(VOLUME_FILTER_MULTIPLIER)} katını aşmıştır:</p>
+        
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
+          <thead style="background-color: #f2f2f2;">
+            <tr>
+              <th>Kod</th>
+              <th>Sektör</th>
+              <th>Fiyat (TL)</th>
+              <th>RSI (14)</th>
+              <th>Günlük Hacim</th>
+              <th>60 Günlük Ort. Hacim</th>
+              <th>Hacim Katı</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for _, row in volume_breakouts_df.iterrows():
+            price = f"₺{row['Kapanış (TL)']:.2f}" if pd.notna(row['Kapanış (TL)']) else "-"
+            rsi_val = row['RSI (14)']
+            rsi_str = f"{rsi_val:.2f}" if pd.notna(rsi_val) else "-"
+            
+            vol = row['volume']
+            avg_vol = row['average_volume_60d_calc']
+            ratio = vol / avg_vol if avg_vol else 0
+            
+            html += f"""
+            <tr>
+              <td><b>{row['Kod']}</b></td>
+              <td>{row['Sektör']}</td>
+              <td>{price}</td>
+              <td>{rsi_str}</td>
+              <td>{int(vol):,}</td>
+              <td>{int(avg_vol):,}</td>
+              <td style="color: green; font-weight: bold;">{ratio:.2f}x</td>
+            </tr>
+            """
+        html += "</tbody></table><br>"
+    
     if portfolio_sentiment:
         html += f"""
         <h2>🏢 Portföy Duyarlılık (Sentiment) Analizi</h2>
@@ -811,25 +852,23 @@ def main():
     # 3. Calculate fair values to enrich email for changed tickers
     df_calc, _ = calculate_fair_values(df_raw)
     
-    # 3.0. Apply volume filter for technical analysis alerts (RSI, divergence, discovery)
-    # We only include stocks whose volume is above 60-day average volume by the multiplier (e.g. 3x)
-    # Portfolio stocks and earnings announcements remain unfiltered so user gets updates for them regardless of volume.
+    # 3.0. Identify volume breakouts
+    volume_breakouts_df = pd.DataFrame()
     if 'volume' in df_calc.columns and 'average_volume_60d_calc' in df_calc.columns:
-        df_tech = df_calc.dropna(subset=['volume', 'average_volume_60d_calc'])
-        df_tech = df_tech[df_tech['volume'] > df_tech['average_volume_60d_calc'] * VOLUME_FILTER_MULTIPLIER]
-        print(f"BİLGİ: Teknik analiz alarmları için hacim filtresi uygulandı. {len(df_calc)} hisseden {len(df_tech)} tanesi kriterleri sağlıyor.")
+        volume_breakouts_df = df_calc[df_calc['volume'] > df_calc['average_volume_60d_calc'] * VOLUME_FILTER_MULTIPLIER]
+        volume_breakouts_df = volume_breakouts_df.sort_values(by='volume', ascending=False)
+        print(f"BİLGİ: Hacim patlaması taraması yapıldı. {len(df_calc)} hisseden {len(volume_breakouts_df)} tanesinde hacim patlaması var.")
     else:
-        df_tech = df_calc
-        print("UYARI: Hacim verileri bulunamadı, teknik analiz alarmları filtrelenmeden çalışacak.")
+        print("UYARI: Hacim verileri bulunamadı, hacim patlaması taraması atlanıyor.")
     
-    # 3.1. Identify RSI < 30 tickers
-    rsi_alerts_df = df_tech[df_tech['RSI (14)'] < 30].sort_values(by='Potansiyel Getiri (%)', ascending=False)
+    # 3.1. Identify RSI < 30 tickers (unfiltered by volume breakout)
+    rsi_alerts_df = df_calc[df_calc['RSI (14)'] < 30].sort_values(by='Potansiyel Getiri (%)', ascending=False)
     
-    # 3.2. Identify RSI Divergence
+    # 3.2. Identify RSI Divergence (unfiltered by volume breakout)
     print("BİLGİ: Pozitif uyumsuzluk taraması başlatılıyor (RSI < 45 olan hisseler)...")
     divergence_signals = []
     # Fetch historical data only for potential candidates to be efficient
-    candidates = df_tech[df_tech['RSI (14)'] < 45]['Kod'].tolist()
+    candidates = df_calc[df_calc['RSI (14)'] < 45]['Kod'].tolist()
     
     for ticker in candidates:
         try:
@@ -845,10 +884,10 @@ def main():
         except Exception as e:
             print(f"HATA: {ticker} için geçmiş veri çekilemedi: {e}")
 
-    # 3.3. Identify Bearish Divergence
+    # 3.3. Identify Bearish Divergence (unfiltered by volume breakout)
     print("BİLGİ: Negatif uyumsuzluk taraması başlatılıyor (RSI > 55 olan hisseler)...")
     bearish_signals = []
-    bearish_candidates = df_tech[df_tech['RSI (14)'] > 55]['Kod'].tolist()
+    bearish_candidates = df_calc[df_calc['RSI (14)'] > 55]['Kod'].tolist()
     
     for ticker in bearish_candidates:
         try:
@@ -875,15 +914,15 @@ def main():
         
     discovery_highlights = get_discovery_highlights(list(discovery_candidates), rsi_alerts_df, divergence_signals)
 
-    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals and not bearish_signals and not portfolio_sentiment and not discovery_highlights:
+    if not changed_tickers and rsi_alerts_df.empty and not divergence_signals and not bearish_signals and not portfolio_sentiment and not discovery_highlights and (volume_breakouts_df is None or volume_breakouts_df.empty):
         print("BİLGİ: Kayda değer bir değişim veya keşif bulunamadı.")
         save_current_dates(current_dates)
         return
         
-    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI, {len(divergence_signals)} pozitif, {len(discovery_highlights)} keşif özeti tamamlandı.")
+    print(f"BİLGİ: {len(changed_tickers)} bilanço, {len(rsi_alerts_df)} RSI, {len(divergence_signals)} pozitif, {len(discovery_highlights)} keşif özeti, {len(volume_breakouts_df)} hacim patlaması tamamlandı.")
     
     # 4. Generate HTML Email Report
-    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals, bearish_signals, portfolio_sentiment, discovery_highlights)
+    html_report = format_html_email(df_calc, changed_tickers, rsi_alerts_df, divergence_signals, bearish_signals, portfolio_sentiment, discovery_highlights, volume_breakouts_df)
     
     date_str = datetime.now().strftime("%d.%m.%Y")
     subject = f"🔔 BİST Günlük Tarama & Teknik Alarmlar - {date_str}"
