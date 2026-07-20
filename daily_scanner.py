@@ -12,7 +12,7 @@ from data_fetcher import fetch_bist_fundamentals
 from calculator import calculate_fair_values
 from technical_analysis import detect_bullish_divergence, detect_bearish_divergence
 from sentiment_analyzer import fetch_stock_news, get_overall_sentiment
-from constants import PERIODS_SNAPSHOT_FILENAME
+from constants import PERIODS_SNAPSHOT_FILENAME, VOLUME_FILTER_MULTIPLIER
 import yfinance as yf
 
 # Load environment variables
@@ -811,14 +811,25 @@ def main():
     # 3. Calculate fair values to enrich email for changed tickers
     df_calc, _ = calculate_fair_values(df_raw)
     
+    # 3.0. Apply volume filter for technical analysis alerts (RSI, divergence, discovery)
+    # We only include stocks whose volume is above 60-day average volume by the multiplier (e.g. 3x)
+    # Portfolio stocks and earnings announcements remain unfiltered so user gets updates for them regardless of volume.
+    if 'volume' in df_calc.columns and 'average_volume_60d_calc' in df_calc.columns:
+        df_tech = df_calc.dropna(subset=['volume', 'average_volume_60d_calc'])
+        df_tech = df_tech[df_tech['volume'] > df_tech['average_volume_60d_calc'] * VOLUME_FILTER_MULTIPLIER]
+        print(f"BİLGİ: Teknik analiz alarmları için hacim filtresi uygulandı. {len(df_calc)} hisseden {len(df_tech)} tanesi kriterleri sağlıyor.")
+    else:
+        df_tech = df_calc
+        print("UYARI: Hacim verileri bulunamadı, teknik analiz alarmları filtrelenmeden çalışacak.")
+    
     # 3.1. Identify RSI < 30 tickers
-    rsi_alerts_df = df_calc[df_calc['RSI (14)'] < 30].sort_values(by='Potansiyel Getiri (%)', ascending=False)
+    rsi_alerts_df = df_tech[df_tech['RSI (14)'] < 30].sort_values(by='Potansiyel Getiri (%)', ascending=False)
     
     # 3.2. Identify RSI Divergence
     print("BİLGİ: Pozitif uyumsuzluk taraması başlatılıyor (RSI < 45 olan hisseler)...")
     divergence_signals = []
     # Fetch historical data only for potential candidates to be efficient
-    candidates = df_calc[df_calc['RSI (14)'] < 45]['Kod'].tolist()
+    candidates = df_tech[df_tech['RSI (14)'] < 45]['Kod'].tolist()
     
     for ticker in candidates:
         try:
@@ -837,7 +848,7 @@ def main():
     # 3.3. Identify Bearish Divergence
     print("BİLGİ: Negatif uyumsuzluk taraması başlatılıyor (RSI > 55 olan hisseler)...")
     bearish_signals = []
-    bearish_candidates = df_calc[df_calc['RSI (14)'] > 55]['Kod'].tolist()
+    bearish_candidates = df_tech[df_tech['RSI (14)'] > 55]['Kod'].tolist()
     
     for ticker in bearish_candidates:
         try:

@@ -176,7 +176,8 @@ def fetch_tv_data():
             "price_52_week_high", "price_52_week_low", "current_ratio", "debt_to_equity", 
             "dividend_yield_recent", "market_cap_basic", "return_on_equity",
             "gross_margin", "operating_margin", "net_margin_ttm",
-            "ebitda_yoy_growth_ttm", "net_income_yoy_growth_ttm", "net_debt"
+            "ebitda_yoy_growth_ttm", "net_income_yoy_growth_ttm", "net_debt",
+            "volume", "average_volume_60d_calc"
         ],
         "sort": {"sortBy": "name", "sortOrder": "asc"},
         "range": [0, 1000]
@@ -206,6 +207,8 @@ def fetch_tv_data():
                 ebitda_growth = row['d'][16]
                 net_income_growth = row['d'][17]
                 net_debt = row['d'][18]
+                volume = row['d'][19]
+                avg_volume_60d = row['d'][20]
                 
                 if pd.notnull(timestamp):
                     formatted_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
@@ -231,7 +234,9 @@ def fetch_tv_data():
                     'Net Kar Marjı (%)': net_margin,
                     'FAVÖK Yıllık Büyüme (%)': ebitda_growth,
                     'Net Kar Yıllık Büyüme (%)': net_income_growth,
-                    'Net Borç': net_debt
+                    'Net Borç': net_debt,
+                    'volume': volume,
+                    'average_volume_60d_calc': avg_volume_60d
                 })
     except Exception as e:
         print("Error fetching TV data:", e)

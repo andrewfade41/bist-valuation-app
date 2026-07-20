@@ -154,3 +154,10 @@ PERIODS_SNAPSHOT_FILENAME = "is_yatirim_periods.json"
 
 MAX_WATCHLISTS = 5  # .env'de desteklenen maksimum watchlist sayısı
 
+
+# =============================================================================
+# Hacim Filtreleme Sabitleri (daily_scanner.py)
+# =============================================================================
+
+VOLUME_FILTER_MULTIPLIER = 3.0  # Hacim, 60 günlük ortalama hacmin en az 3 katı olmalı (TradingView scan filter)
+
