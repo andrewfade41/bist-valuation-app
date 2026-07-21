@@ -713,6 +713,8 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <th>Kod</th>
               <th>Sektör</th>
               <th>Fiyat (TL)</th>
+              <th>Hedef Fiyat</th>
+              <th>Potansiyel Getiri</th>
               <th>RSI (14)</th>
               <th>Günlük Hacim</th>
               <th>60 Günlük Ort. Hacim</th>
@@ -726,6 +728,13 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
             rsi_val = row['RSI (14)']
             rsi_str = f"{rsi_val:.2f}" if pd.notna(rsi_val) else "-"
             
+            hedef_fiyat = row.get('Nihai Hedef Fiyat')
+            hedef_fiyat_str = f"₺{hedef_fiyat:.2f}" if pd.notna(hedef_fiyat) else "-"
+            
+            potansiyel = row.get('Potansiyel Getiri (%)')
+            pot_color = "green" if potansiyel and potansiyel >= 0 else "red"
+            pot_str = f"<b><span style='color: {pot_color};'>{potansiyel:+.2f}%</span></b>" if pd.notna(potansiyel) else "-"
+            
             vol = row['volume']
             avg_vol = row['average_volume_60d_calc']
             ratio = vol / avg_vol if avg_vol else 0
@@ -735,6 +744,8 @@ def format_html_email(df_calc, changed_tickers, rsi_alerts_df=None, divergence_s
               <td><b>{row['Kod']}</b></td>
               <td>{row['Sektör']}</td>
               <td>{price}</td>
+              <td>{hedef_fiyat_str}</td>
+              <td>{pot_str}</td>
               <td>{rsi_str}</td>
               <td>{int(vol):,}</td>
               <td>{int(avg_vol):,}</td>
